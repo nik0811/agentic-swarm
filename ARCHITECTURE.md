@@ -302,15 +302,10 @@ agentic_swarm/
 │       ├── github.py        # GitHub repos
 │       └── api.py           # REST API sources
 │
-├── vectordb/                # Vector Database Backends
+├── vectordb/                # Vector Database
 │   ├── __init__.py
 │   ├── base.py              # VectorDB interface
-│   ├── qdrant.py            # Qdrant (recommended)
-│   ├── chroma.py            # ChromaDB (local)
-│   ├── pinecone.py          # Pinecone (cloud)
-│   ├── weaviate.py          # Weaviate
-│   ├── pgvector.py          # PostgreSQL pgvector
-│   └── milvus.py            # Milvus
+│   └── qdrant.py            # Qdrant (RAG + document store)
 │
 └── utils/                   # Utilities
     ├── __init__.py
@@ -351,7 +346,7 @@ tests/                       # Test suite
 | **Smart LLM Routing** | Route to optimal model based on task complexity |
 | **Token Management** | Send only required context, compress when needed |
 | **RAG Pipeline** | Chunk, embed, retrieve, rerank for knowledge augmentation |
-| **Vector DB** | Pluggable backends (Qdrant, Chroma, Pinecone, pgvector) |
+| **Vector DB** | Qdrant (RAG + document store, hybrid search, multi-tenant) |
 
 ---
 
@@ -757,41 +752,57 @@ tests/                       # Test suite
 
 ---
 
-## Vector Database Comparison
+## Qdrant - Vector DB + Document Store
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        VECTOR DATABASE OPTIONS                                  │
+│                        QDRANT - VECTOR DB + DOCUMENT STORE                       │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌───────────────────────────────────────────────────────────────────────┐      │
-│  │  DATABASE    │ TYPE    │ BEST FOR                │ SCALE              │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  Qdrant      │ Native  │ Production, hybrid      │ Billions vectors   │      │
-│  │              │         │ search, filtering       │ Distributed        │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  ChromaDB    │ Native  │ Local dev, prototyping  │ Millions vectors   │      │
-│  │              │         │ Simple setup            │ Single node        │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  Pinecone    │ Cloud   │ Managed, serverless     │ Billions vectors   │      │
-│  │              │         │ Zero ops                │ Auto-scaling       │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  pgvector    │ Extension│ Existing Postgres      │ Millions vectors   │      │
-│  │              │         │ ACID transactions       │ Single node        │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  Weaviate    │ Native  │ GraphQL, modules        │ Billions vectors   │      │
-│  │              │         │ Built-in vectorizers    │ Distributed        │      │
-│  ├──────────────┼─────────┼─────────────────────────┼────────────────────┤      │
-│  │  Milvus      │ Native  │ GPU acceleration        │ Trillions vectors  │      │
-│  │              │         │ High throughput         │ Distributed        │      │
-│  └──────────────┴─────────┴─────────────────────────┴────────────────────┘      │
-│                                                                                 │
-│  RECOMMENDED:                                                                   │
-│  • Development: ChromaDB (zero config, in-memory)                               │
-│  • Production: Qdrant (fast, feature-rich, self-hosted or cloud)                │
-│  • Existing Postgres: pgvector (no new infra)                                   │
-│  • Serverless: Pinecone (managed, pay-per-use)                                  │
-│                                                                                 │
+│                                                                                  │
+│  WHY QDRANT:                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                            │  │
+│  │  ✓ HYBRID SEARCH      - Dense vectors + sparse (BM25) + keyword filters   │  │
+│  │  ✓ PAYLOAD STORAGE    - Store full documents alongside vectors (no ext DB)│  │
+│  │  ✓ FILTERING          - Rich filtering on metadata during search          │  │
+│  │  ✓ MULTI-TENANCY      - Isolated collections per agent/user               │  │
+│  │  ✓ QUANTIZATION       - Compress vectors for 4x memory savings            │  │
+│  │  ✓ SCALE              - Billions of vectors, distributed sharding         │  │
+│  │  ✓ SELF-HOSTED        - Run locally or on your infra (no vendor lock-in)  │  │
+│  │  ✓ CLOUD OPTION       - Qdrant Cloud if you want managed                  │  │
+│  │                                                                            │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  QDRANT AS DOCUMENT STORE:                                                      │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                            │  │
+│  │  // Store document with vector + full payload                             │  │
+│  │  {                                                                         │  │
+│  │    "id": "doc-123",                                                        │  │
+│  │    "vector": [0.1, 0.2, ...],           // Embedding                      │  │
+│  │    "payload": {                                                            │  │
+│  │      "content": "Full document text...", // No external DB needed         │  │
+│  │      "source": "runbooks/k8s.md",                                         │  │
+│  │      "chunk_index": 5,                                                     │  │
+│  │      "metadata": { "author": "...", "updated": "..." },                   │  │
+│  │      "agent_id": "agent-456",            // Multi-tenancy                 │  │
+│  │    }                                                                       │  │
+│  │  }                                                                         │  │
+│  │                                                                            │  │
+│  │  // Query with filters                                                     │  │
+│  │  results = qdrant.search(                                                  │  │
+│  │    vector=query_embedding,                                                 │  │
+│  │    filter={"agent_id": "agent-456", "source": {"$contains": "k8s"}},     │  │
+│  │    limit=10                                                                │  │
+│  │  )                                                                         │  │
+│  │                                                                            │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  DEPLOYMENT OPTIONS:                                                            │
+│  • Local dev:    docker run -p 6333:6333 qdrant/qdrant                         │
+│  • Production:   Kubernetes with persistent volume                              │
+│  • Managed:      Qdrant Cloud (qdrant.io)                                       │
+│                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
