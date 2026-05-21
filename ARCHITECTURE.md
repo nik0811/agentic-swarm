@@ -18,16 +18,16 @@
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │                         ORCHESTRATOR (Supervisor)                        │   │
-│  │  • Task decomposition    • Agent lifecycle    • Health monitoring        │   │
-│  │  • Load balancing        • Auto-scaling       • Failure recovery         │   │
+│  │                         ORCHESTRATOR (Supervisor)                       │    │
+│  │  • Task decomposition    • Agent lifecycle    • Health monitoring       │    │
+│  │  • Load balancing        • Auto-scaling       • Failure recovery        │    │
 │  └─────────────────────────────────────────────────────────────────────────┘    │
 │                                      │                                          │
 │                                      ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │                      SECURE MESSAGE BUS (Encrypted)                      │   │
-│  │  • Agent-to-Agent communication    • Event broadcasting                  │   │
-│  │  • Task delegation                 • Result aggregation                  │   │
+│  │                      SECURE MESSAGE BUS (Encrypted)                     │    │
+│  │  • Agent-to-Agent communication    • Event broadcasting                 │    │
+│  │  • Task delegation                 • Result aggregation                 │    │
 │  └─────────────────────────────────────────────────────────────────────────┘    │
 │         │                    │                    │                    │        │
 │         ▼                    ▼                    ▼                    ▼        │
