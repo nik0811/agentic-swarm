@@ -24,13 +24,13 @@ A plug-and-play SDK for building immortal, self-healing multi-agent AI systems w
 │       ▼                                                     │
 │  Secure Message Bus (Encrypted)                             │
 │       │                                                     │
-│       ├──► Agent A ──► [Sandbox] ──► [Healer]              │
-│       ├──► Agent B ──► [Sandbox] ──► [Healer]              │
-│       └──► Agent N ──► [Sandbox] ──► [Healer]              │
+│       ├──► Agent A ──► [Sandbox] ──► [Healer]               │
+│       ├──► Agent B ──► [Sandbox] ──► [Healer]               │
+│       └──► Agent N ──► [Sandbox] ──► [Healer]               │
 │                                                             │
-│  Memory: Core │ Recall │ Archival (Vector DB)              │
-│  LLM Router: Classify → Budget → Compress → Route          │
-│  RAG: Chunk → Embed → Retrieve → Rerank                    │
+│  Memory: Core │ Recall │ Archival (Vector DB)               │
+│  LLM Router: Classify → Budget → Compress → Route           │
+│  RAG: Chunk → Embed → Retrieve → Rerank                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
