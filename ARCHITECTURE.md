@@ -231,6 +231,18 @@ agentic_swarm/
 │   ├── types.py             # Type definitions
 │   └── registry.py          # Agent/tool registry
 │
+├── tools/                   # Tool system
+│   ├── __init__.py
+│   ├── base.py              # Tool base class & @tool decorator
+│   ├── registry.py          # Tool registry
+│   └── builtin/             # Built-in tools
+│       ├── __init__.py
+│       ├── agent_management.py  # create_agent, terminate, delegate
+│       ├── memory.py            # memory_store, memory_search
+│       ├── filesystem.py        # read_file, write_file, list_dir
+│       ├── code_execution.py    # run_python, run_shell (sandboxed)
+│       └── web.py               # web_search, web_fetch, api_call
+│
 ├── memory/                  # Tiered memory system
 │   ├── __init__.py
 │   ├── base.py              # Memory interface
@@ -756,12 +768,12 @@ tests/                       # Test suite
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        QDRANT - VECTOR DB + DOCUMENT STORE                       │
+│                        QDRANT - VECTOR DB + DOCUMENT STORE                      │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
+│                                                                                 │
 │  WHY QDRANT:                                                                    │
 │  ┌───────────────────────────────────────────────────────────────────────────┐  │
-│  │                                                                            │  │
+│  │                                                                           │  │
 │  │  ✓ HYBRID SEARCH      - Dense vectors + sparse (BM25) + keyword filters   │  │
 │  │  ✓ PAYLOAD STORAGE    - Store full documents alongside vectors (no ext DB)│  │
 │  │  ✓ FILTERING          - Rich filtering on metadata during search          │  │
@@ -770,39 +782,39 @@ tests/                       # Test suite
 │  │  ✓ SCALE              - Billions of vectors, distributed sharding         │  │
 │  │  ✓ SELF-HOSTED        - Run locally or on your infra (no vendor lock-in)  │  │
 │  │  ✓ CLOUD OPTION       - Qdrant Cloud if you want managed                  │  │
-│  │                                                                            │  │
+│  │                                                                           │  │
 │  └───────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
+│                                                                                 │
 │  QDRANT AS DOCUMENT STORE:                                                      │
 │  ┌───────────────────────────────────────────────────────────────────────────┐  │
-│  │                                                                            │  │
+│  │                                                                           │  │
 │  │  // Store document with vector + full payload                             │  │
-│  │  {                                                                         │  │
-│  │    "id": "doc-123",                                                        │  │
+│  │  {                                                                        │  │
+│  │    "id": "doc-123",                                                       │  │
 │  │    "vector": [0.1, 0.2, ...],           // Embedding                      │  │
-│  │    "payload": {                                                            │  │
+│  │    "payload": {                                                           │  │
 │  │      "content": "Full document text...", // No external DB needed         │  │
 │  │      "source": "runbooks/k8s.md",                                         │  │
-│  │      "chunk_index": 5,                                                     │  │
+│  │      "chunk_index": 5,                                                    │  │
 │  │      "metadata": { "author": "...", "updated": "..." },                   │  │
 │  │      "agent_id": "agent-456",            // Multi-tenancy                 │  │
-│  │    }                                                                       │  │
-│  │  }                                                                         │  │
-│  │                                                                            │  │
-│  │  // Query with filters                                                     │  │
-│  │  results = qdrant.search(                                                  │  │
-│  │    vector=query_embedding,                                                 │  │
-│  │    filter={"agent_id": "agent-456", "source": {"$contains": "k8s"}},     │  │
-│  │    limit=10                                                                │  │
-│  │  )                                                                         │  │
-│  │                                                                            │  │
+│  │    }                                                                      │  │
+│  │  }                                                                        │  │
+│  │                                                                           │  │
+│  │  // Query with filters                                                    │  │
+│  │  results = qdrant.search(                                                 │  │
+│  │    vector=query_embedding,                                                │  │
+│  │    filter={"agent_id": "agent-456", "source": {"$contains": "k8s"}},      │  │
+│  │    limit=10                                                               │  │
+│  │  )                                                                        │  │
+│  │                                                                           │  │
 │  └───────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
+│                                                                                 │
 │  DEPLOYMENT OPTIONS:                                                            │
-│  • Local dev:    docker run -p 6333:6333 qdrant/qdrant                         │
+│  • Local dev:    docker run -p 6333:6333 qdrant/qdrant                          │
 │  • Production:   Kubernetes with persistent volume                              │
 │  • Managed:      Qdrant Cloud (qdrant.io)                                       │
-│                                                                                  │
+│                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -867,6 +879,208 @@ tests/                       # Test suite
 │  • Chunk size: 256-512 tokens (balance context vs precision)                    │
 │  • Overlap: 10-20% of chunk size                                                │
 │  • Strategy: Recursive for docs, Code-aware for code                            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Dynamic Agent Creation
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         DYNAMIC AGENT CREATION                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  Any agent can create new agents on-the-fly to handle complex tasks.            │
+│  Created agents are fully functional with their own tools and actions.          │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │   PARENT AGENT (e.g., Coordinator)                                        │  │
+│  │        │                                                                  │  │
+│  │        │  # Create a specialized agent dynamically                        │  │
+│  │        │  researcher = await self.create_agent(                           │  │
+│  │        │      name="researcher",                                          │  │
+│  │        │      role="Research and analyze data",                           │  │
+│  │        │      tools=[web_search, read_file, analyze],                     │  │
+│  │        │      llm="gpt-4o",                                               │  │
+│  │        │  )                                                               │  │
+│  │        │                                                                  │  │
+│  │        │  # Agent executes actions autonomously                           │  │
+│  │        │  result = await researcher.run("Find latest AI papers")          │  │
+│  │        │                                                                  │  │
+│  │        │  # Create another agent for different task                       │  │
+│  │        │  coder = await self.create_agent(                                │  │
+│  │        │      name="coder",                                               │  │
+│  │        │      role="Write and test code",                                 │  │
+│  │        │      tools=[write_file, run_code, git_commit],                   │  │
+│  │        │  )                                                               │  │
+│  │        │                                                                  │  │
+│  │        │  # Agents can communicate                                        │  │
+│  │        │  await coder.send(researcher, "Need the API specs")              │  │
+│  │        │                                                                  │  │
+│  │        │  # Parallel execution                                            │  │
+│  │        │  results = await asyncio.gather(                                 │  │
+│  │        │      researcher.run("Research task"),                            │  │
+│  │        │      coder.run("Coding task"),                                   │  │
+│  │        │  )                                                               │  │
+│  │        │                                                                  │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  AGENT CREATION OPTIONS:                                                        │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  AgentSpec {                                                              │  │
+│  │    name: str              # Unique identifier                             │  │
+│  │    role: str              # System prompt / persona                       │  │
+│  │    tools: List[Tool]      # Actions the agent can perform                 │  │
+│  │    llm: str               # Model to use (optional, inherits parent)      │  │
+│  │    memory: MemoryConfig   # Memory settings (optional)                    │  │
+│  │    max_iterations: int    # Limit reasoning loops (default: 10)           │  │
+│  │    timeout: int           # Max execution time in seconds                 │  │
+│  │    parent_id: str         # Auto-set to creating agent                    │  │
+│  │    permissions: List[str] # Inherited from parent (cannot escalate)       │  │
+│  │  }                                                                        │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  LIFECYCLE:                                                                     │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │   create_agent()                                                          │  │
+│  │        │                                                                  │  │
+│  │        ▼                                                                  │  │
+│  │   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐                │  │
+│  │   │ CREATED │───►│ RUNNING │───►│ WAITING │───►│  DONE   │                │  │
+│  │   └─────────┘    └────┬────┘    └─────────┘    └────┬────┘                │  │
+│  │                       │                              │                    │  │
+│  │                       │ (failure)                    │                    │  │
+│  │                       ▼                              ▼                    │  │
+│  │                  ┌─────────┐                   ┌──────────┐               │  │
+│  │                  │RECOVERING│                  │TERMINATED│               │  │
+│  │                  │(auto-heal)│                 │(cleanup) │               │  │
+│  │                  └─────────┘                   └──────────┘               │  │
+│  │                                                                           │  │
+│  │   Options after completion:                                               │  │
+│  │   • Auto-terminate (default) - cleanup after task done                    │  │
+│  │   • Keep-alive - persist for future tasks                                 │  │
+│  │   • Pool - return to agent pool for reuse                                 │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  CONSTRAINTS (Security):                                                        │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  • Max depth: 3 levels (agent → child → grandchild)                       │  │
+│  │  • Permissions: Cannot exceed parent's permissions                        │  │
+│  │  • Tools: Can only use tools from global registry                         │  │
+│  │  • Memory: Isolated, no access to parent's user data                      │  │
+│  │  • Resources: CPU/memory limits enforced via sandbox                      │  │
+│  │  • Audit: All creations logged with full lineage                          │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Agent Actions & Tools
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            AGENT ACTIONS & TOOLS                                │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  Agents perform actions through tools. Tools are functions with schemas.        │
+│                                                                                 │
+│  TOOL DEFINITION:                                                               │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  @tool                                                                    │  │
+│  │  async def web_search(query: str, max_results: int = 10) -> List[dict]:   │  │
+│  │      """Search the web for information.                                   │  │
+│  │                                                                           │  │
+│  │      Args:                                                                │  │
+│  │          query: Search query string                                       │  │
+│  │          max_results: Maximum results to return                           │  │
+│  │                                                                           │  │
+│  │      Returns:                                                             │  │
+│  │          List of search results with title, url, snippet                  │  │
+│  │      """                                                                  │  │
+│  │      # Implementation                                                     │  │
+│  │      return results                                                       │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  BUILT-IN TOOL CATEGORIES:                                                      │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │  AGENT MANAGEMENT:                                                        │  │
+│  │  • create_agent()     - Spawn new agent with spec                         │  │
+│  │  • terminate_agent()  - Stop and cleanup agent                            │  │
+│  │  • list_agents()      - List active agents                                │  │
+│  │  • send_message()     - Send message to another agent                     │  │
+│  │  • delegate_task()    - Assign task to another agent                      │  │
+│  │                                                                           │  │
+│  │  MEMORY:                                                                  │  │
+│  │  • memory_store()     - Store to archival memory                          │  │
+│  │  • memory_search()    - Search archival memory                            │  │
+│  │  • memory_recall()    - Get recent context                                │  │
+│  │                                                                           │  │
+│  │  FILE SYSTEM:                                                             │  │
+│  │  • read_file()        - Read file contents                                │  │
+│  │  • write_file()       - Write/create file                                 │  │
+│  │  • list_directory()   - List directory contents                           │  │
+│  │                                                                           │  │
+│  │  CODE EXECUTION:                                                          │  │
+│  │  • run_python()       - Execute Python code (sandboxed)                   │  │
+│  │  • run_shell()        - Execute shell command (sandboxed)                 │  │
+│  │                                                                           │  │
+│  │  WEB:                                                                     │  │
+│  │  • web_search()       - Search the internet                               │  │
+│  │  • web_fetch()        - Fetch URL content                                 │  │
+│  │  • api_call()         - Make HTTP API request                             │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  ACTION EXECUTION FLOW (ReAct Pattern):                                         │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                                                                           │  │
+│  │   Agent receives task                                                     │  │
+│  │        │                                                                  │  │
+│  │        ▼                                                                  │  │
+│  │   ┌─────────────────┐                                                     │  │
+│  │   │  THINK (LLM)    │  Analyze task, plan actions                         │  │
+│  │   └────────┬────────┘                                                     │  │
+│  │            │                                                              │  │
+│  │            ▼                                                              │  │
+│  │   ┌─────────────────┐                                                     │  │
+│  │   │  SELECT TOOL    │  Choose appropriate tool                            │  │
+│  │   └────────┬────────┘                                                     │  │
+│  │            │                                                              │  │
+│  │            ▼                                                              │  │
+│  │   ┌─────────────────┐                                                     │  │
+│  │   │  EXECUTE ACTION │  Run tool in sandbox                                │  │
+│  │   └────────┬────────┘                                                     │  │
+│  │            │                                                              │  │
+│  │            ▼                                                              │  │
+│  │   ┌─────────────────┐                                                     │  │
+│  │   │  OBSERVE RESULT │  Process tool output                                │  │
+│  │   └────────┬────────┘                                                     │  │
+│  │            │                                                              │  │
+│  │            ▼                                                              │  │
+│  │   ┌─────────────────┐     ┌─────────────────┐                             │  │
+│  │   │  TASK COMPLETE? │─NO─►│  LOOP (THINK)   │                             │  │
+│  │   └────────┬────────┘     └─────────────────┘                             │  │
+│  │            │ YES                                                          │  │
+│  │            ▼                                                              │  │
+│  │   ┌─────────────────┐                                                     │  │
+│  │   │  RETURN RESULT  │                                                     │  │
+│  │   └─────────────────┘                                                     │  │
+│  │                                                                           │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
