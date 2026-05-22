@@ -1,7 +1,7 @@
 """File-based RAG data source."""
-import os
+
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator, List
 
 from .base import BaseSource, Document
 
@@ -9,12 +9,12 @@ from .base import BaseSource, Document
 class FileSource(BaseSource):
     """Load documents from local files or directories."""
 
-    def __init__(self, path: str, extensions: List[str] = None, recursive: bool = True):
+    def __init__(self, path: str, extensions: list[str] = None, recursive: bool = True):
         self._path = Path(path)
         self._extensions = extensions or [".txt", ".md", ".py", ".js", ".ts", ".html", ".json"]
         self._recursive = recursive
 
-    async def load(self) -> List[Document]:
+    async def load(self) -> list[Document]:
         docs = []
         async for doc in self.load_lazy():
             docs.append(doc)

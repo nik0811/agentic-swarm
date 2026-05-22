@@ -1,12 +1,12 @@
+from .archival_memory import ArchivalEntry, ArchivalMemory
 from .base import BaseMemory, MemoryEntry
-from .core_memory import CoreMemory, CoreMemoryData
-from .recall_memory import RecallMemory, RecallEntry
-from .archival_memory import ArchivalMemory, ArchivalEntry
 from .controller import MemoryController
+from .core_memory import CoreMemory, CoreMemoryData
+from .recall_memory import RecallEntry, RecallMemory
 
 __all__ = [
     "BaseMemory",
-    "MemoryEntry", 
+    "MemoryEntry",
     "CoreMemory",
     "CoreMemoryData",
     "RecallMemory",

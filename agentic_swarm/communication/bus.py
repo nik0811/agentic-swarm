@@ -1,7 +1,8 @@
 """Central message bus for agent communication."""
+
 import asyncio
-from typing import Callable, Dict, List, Optional
 from collections import defaultdict
+from collections.abc import Callable
 
 from .protocols import Message, MessageType
 
@@ -10,11 +11,11 @@ class MessageBus:
     """Pub/sub message bus for decoupled agent communication."""
 
     def __init__(self, max_queue_size: int = 1000):
-        self._subscribers: Dict[str, List[Callable]] = defaultdict(list)
-        self._topic_subscribers: Dict[str, List[Callable]] = defaultdict(list)
+        self._subscribers: dict[str, list[Callable]] = defaultdict(list)
+        self._topic_subscribers: dict[str, list[Callable]] = defaultdict(list)
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=max_queue_size)
         self._running = False
-        self._history: List[Message] = []
+        self._history: list[Message] = []
         self._max_history = 1000
 
     def subscribe(self, agent_id: str, handler: Callable) -> None:
@@ -40,7 +41,7 @@ class MessageBus:
         """Publish a message to the bus."""
         self._history.append(message)
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+            self._history = self._history[-self._max_history :]
 
         if message.receiver_id:
             handlers = self._subscribers.get(message.receiver_id, [])
@@ -71,12 +72,11 @@ class MessageBus:
         )
         await self.publish(msg)
 
-    def get_history(self, agent_id: Optional[str] = None, limit: int = 50) -> List[Message]:
+    def get_history(self, agent_id: str | None = None, limit: int = 50) -> list[Message]:
         """Get message history, optionally filtered by agent."""
         if agent_id:
             filtered = [
-                m for m in self._history
-                if m.sender_id == agent_id or m.receiver_id == agent_id
+                m for m in self._history if m.sender_id == agent_id or m.receiver_id == agent_id
             ]
             return filtered[-limit:]
         return self._history[-limit:]

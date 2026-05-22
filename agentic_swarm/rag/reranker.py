@@ -1,5 +1,5 @@
 """Reranking strategies for RAG retrieval results."""
-from typing import List, Optional
+
 from pydantic import BaseModel
 
 from ..llm.base import BaseLLMProvider, LLMMessage
@@ -7,6 +7,7 @@ from ..llm.base import BaseLLMProvider, LLMMessage
 
 class RerankResult(BaseModel):
     """A reranked result with updated score."""
+
     content: str
     original_score: float
     reranked_score: float
@@ -19,7 +20,7 @@ class Reranker:
     def __init__(
         self,
         strategy: str = "cross_encoder",
-        llm_provider: Optional[BaseLLMProvider] = None,
+        llm_provider: BaseLLMProvider | None = None,
         vector_weight: float = 0.4,
         keyword_weight: float = 0.2,
         freshness_weight: float = 0.1,
@@ -35,9 +36,9 @@ class Reranker:
     async def rerank(
         self,
         query: str,
-        results: List[dict],
+        results: list[dict],
         top_k: int = 5,
-    ) -> List[RerankResult]:
+    ) -> list[RerankResult]:
         """Rerank results based on strategy."""
         if self._strategy == "llm" and self._llm:
             return await self._rerank_with_llm(query, results, top_k)
@@ -46,7 +47,7 @@ class Reranker:
         else:
             return self._rerank_hybrid(query, results, top_k)
 
-    def _rerank_hybrid(self, query: str, results: List[dict], top_k: int) -> List[RerankResult]:
+    def _rerank_hybrid(self, query: str, results: list[dict], top_k: int) -> list[RerankResult]:
         """Hybrid reranking combining vector score and keyword overlap."""
         query_terms = set(query.lower().split())
         scored = []
@@ -65,17 +66,19 @@ class Reranker:
                 + self._relevance_weight * min(original_score * 1.2, 1.0)
             )
 
-            scored.append(RerankResult(
-                content=content,
-                original_score=original_score,
-                reranked_score=combined,
-                metadata=r.get("metadata", {}),
-            ))
+            scored.append(
+                RerankResult(
+                    content=content,
+                    original_score=original_score,
+                    reranked_score=combined,
+                    metadata=r.get("metadata", {}),
+                )
+            )
 
         scored.sort(key=lambda x: x.reranked_score, reverse=True)
         return scored[:top_k]
 
-    def _rerank_keyword(self, query: str, results: List[dict], top_k: int) -> List[RerankResult]:
+    def _rerank_keyword(self, query: str, results: list[dict], top_k: int) -> list[RerankResult]:
         """Keyword-based reranking using term frequency."""
         query_terms = query.lower().split()
         scored = []
@@ -85,17 +88,21 @@ class Reranker:
             score = sum(content.count(term) for term in query_terms)
             normalized = score / max(len(content.split()), 1)
 
-            scored.append(RerankResult(
-                content=r.get("content", ""),
-                original_score=r.get("score", 0.0),
-                reranked_score=normalized,
-                metadata=r.get("metadata", {}),
-            ))
+            scored.append(
+                RerankResult(
+                    content=r.get("content", ""),
+                    original_score=r.get("score", 0.0),
+                    reranked_score=normalized,
+                    metadata=r.get("metadata", {}),
+                )
+            )
 
         scored.sort(key=lambda x: x.reranked_score, reverse=True)
         return scored[:top_k]
 
-    async def _rerank_with_llm(self, query: str, results: List[dict], top_k: int) -> List[RerankResult]:
+    async def _rerank_with_llm(
+        self, query: str, results: list[dict], top_k: int
+    ) -> list[RerankResult]:
         """Use LLM to score relevance of each result."""
         scored = []
 
@@ -119,12 +126,14 @@ class Reranker:
             except (ValueError, Exception):
                 score = r.get("score", 0.0)
 
-            scored.append(RerankResult(
-                content=r.get("content", ""),
-                original_score=r.get("score", 0.0),
-                reranked_score=score,
-                metadata=r.get("metadata", {}),
-            ))
+            scored.append(
+                RerankResult(
+                    content=r.get("content", ""),
+                    original_score=r.get("score", 0.0),
+                    reranked_score=score,
+                    metadata=r.get("metadata", {}),
+                )
+            )
 
         scored.sort(key=lambda x: x.reranked_score, reverse=True)
         return scored[:top_k]

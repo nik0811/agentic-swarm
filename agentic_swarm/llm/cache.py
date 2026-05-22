@@ -9,9 +9,9 @@ Two caching strategies:
 
 import hashlib
 import time
-from typing import List, Optional, Dict, Any
-from dataclasses import dataclass, field
 from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Any
 
 from .base import LLMMessage, LLMResponse
 
@@ -19,6 +19,7 @@ from .base import LLMMessage, LLMResponse
 @dataclass
 class CacheEntry:
     """A cached LLM response."""
+
     response: LLMResponse
     created_at: float
     hit_count: int = 0
@@ -28,6 +29,7 @@ class CacheEntry:
 @dataclass
 class CacheStats:
     """Statistics about cache usage."""
+
     hits: int = 0
     misses: int = 0
     total_tokens_saved: int = 0
@@ -43,22 +45,22 @@ class CacheStats:
 class PromptCache:
     """
     LLM response cache that avoids redundant API calls for identical prompts.
-    
+
     Features:
     - Hash-based lookup (SHA-256 of messages + system prompt + model)
     - TTL expiration (configurable, default 1 hour)
     - LRU eviction when max size reached
     - Token savings tracking
     - Per-model cache isolation
-    
+
     Usage:
         cache = PromptCache(max_size=1000, ttl=3600)
-        
+
         # Check before calling LLM
         cached = cache.get(messages, system_prompt, model)
         if cached:
             return cached  # Free!
-        
+
         # After LLM call, store result
         response = await provider.chat(messages)
         cache.put(messages, system_prompt, model, response, input_tokens=150)
@@ -78,10 +80,10 @@ class PromptCache:
 
     def _compute_key(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         system_prompt: str = "",
         model: str = "",
-        tools: List[dict] = None,
+        tools: list[dict] = None,
     ) -> str:
         """Compute a deterministic cache key from the prompt."""
         parts = [
@@ -98,11 +100,11 @@ class PromptCache:
 
     def get(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         system_prompt: str = "",
         model: str = "",
-        tools: List[dict] = None,
-    ) -> Optional[LLMResponse]:
+        tools: list[dict] = None,
+    ) -> LLMResponse | None:
         """Look up a cached response. Returns None on miss."""
         if not self.enabled:
             return None
@@ -126,11 +128,11 @@ class PromptCache:
 
     def put(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         system_prompt: str,
         model: str,
         response: LLMResponse,
-        tools: List[dict] = None,
+        tools: list[dict] = None,
         input_tokens: int = 0,
     ) -> None:
         """Store a response in cache."""
@@ -151,7 +153,7 @@ class PromptCache:
 
     def invalidate(
         self,
-        messages: List[LLMMessage] = None,
+        messages: list[LLMMessage] = None,
         system_prompt: str = "",
         model: str = "",
     ) -> bool:
@@ -182,16 +184,16 @@ class PromptCache:
 class PrefixCache:
     """
     Tracks common prompt prefixes for provider-level caching.
-    
+
     Many LLM providers (Anthropic, OpenAI, Bedrock) cache token prefixes
     server-side. This class helps identify and mark cacheable prefixes
     to maximize cache hits at the provider level.
-    
+
     How it works:
     - Track system prompts and tool definitions that repeat across calls
     - Mark them with cache_control for providers that support it
     - Reorder messages to maximize prefix overlap between calls
-    
+
     Supported providers:
     - Anthropic: Adds cache_control: {"type": "ephemeral"} to system message
     - OpenAI: Automatic (same prefix across requests gets cached)
@@ -199,8 +201,8 @@ class PrefixCache:
     """
 
     def __init__(self):
-        self._prefix_registry: Dict[str, Dict[str, Any]] = {}
-        self._hit_counts: Dict[str, int] = {}
+        self._prefix_registry: dict[str, dict[str, Any]] = {}
+        self._hit_counts: dict[str, int] = {}
 
     def register_prefix(self, prefix_id: str, content: str, token_count: int = 0) -> None:
         """Register a cacheable prefix (system prompt, tool defs, etc.)."""
@@ -214,12 +216,12 @@ class PrefixCache:
     def mark_for_caching(
         self,
         system_prompt: str,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         provider: str = "anthropic",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Return cache hints for the provider.
-        
+
         For Anthropic/Bedrock: returns cache_control markers
         For OpenAI: returns prefix ordering hints
         """
@@ -240,7 +242,7 @@ class PrefixCache:
 
         return hints
 
-    def get_anthropic_system(self, system_prompt: str) -> List[dict]:
+    def get_anthropic_system(self, system_prompt: str) -> list[dict]:
         """Format system prompt with Anthropic cache_control."""
         return [
             {
@@ -257,7 +259,9 @@ class PrefixCache:
             "text": system_prompt,
         }
 
-    def estimate_savings(self, tokens_per_call: int, calls: int, provider: str = "anthropic") -> dict:
+    def estimate_savings(
+        self, tokens_per_call: int, calls: int, provider: str = "anthropic"
+    ) -> dict:
         """Estimate cost savings from prefix caching."""
         pricing = {
             "anthropic": {"write_per_1k": 0.00375, "read_per_1k": 0.0003, "base_per_1k": 0.003},
@@ -269,16 +273,14 @@ class PrefixCache:
 
         if provider in ("anthropic", "bedrock"):
             base_cost = (tokens_per_call / 1000) * rates["base_per_1k"] * calls
-            cached_cost = (
-                (tokens_per_call / 1000) * rates["write_per_1k"] * 1 +
-                (tokens_per_call / 1000) * rates["read_per_1k"] * (calls - 1)
-            )
+            cached_cost = (tokens_per_call / 1000) * rates["write_per_1k"] * 1 + (
+                tokens_per_call / 1000
+            ) * rates["read_per_1k"] * (calls - 1)
         else:
             base_cost = (tokens_per_call / 1000) * rates["base_per_1k"] * calls
-            cached_cost = (
-                (tokens_per_call / 1000) * rates["base_per_1k"] * 1 +
-                (tokens_per_call / 1000) * rates["cached_per_1k"] * (calls - 1)
-            )
+            cached_cost = (tokens_per_call / 1000) * rates["base_per_1k"] * 1 + (
+                tokens_per_call / 1000
+            ) * rates["cached_per_1k"] * (calls - 1)
 
         return {
             "base_cost": round(base_cost, 6),

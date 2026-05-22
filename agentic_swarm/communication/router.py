@@ -1,18 +1,17 @@
 """Message routing for directing messages between agents."""
-from typing import Callable, Dict, List, Optional
 
-from .protocols import Message, MessageType
 from .bus import MessageBus
 from .channel import Channel
+from .protocols import Message
 
 
 class MessageRouter:
     """Routes messages between agents using channels or the bus."""
 
-    def __init__(self, bus: Optional[MessageBus] = None):
+    def __init__(self, bus: MessageBus | None = None):
         self._bus = bus or MessageBus()
-        self._channels: Dict[str, Channel] = {}
-        self._routes: Dict[str, str] = {}
+        self._channels: dict[str, Channel] = {}
+        self._routes: dict[str, str] = {}
 
     @property
     def bus(self) -> MessageBus:
@@ -25,7 +24,7 @@ class MessageRouter:
             self._channels[key] = Channel(agent_a_id, agent_b_id, buffer_size)
         return self._channels[key]
 
-    def get_channel(self, agent_a_id: str, agent_b_id: str) -> Optional[Channel]:
+    def get_channel(self, agent_a_id: str, agent_b_id: str) -> Channel | None:
         """Get existing channel between two agents."""
         key = self._channel_key(agent_a_id, agent_b_id)
         return self._channels.get(key)
@@ -41,7 +40,7 @@ class MessageRouter:
         """Set a default routing path from one agent to another."""
         self._routes[from_agent] = to_agent
 
-    def get_route(self, from_agent: str) -> Optional[str]:
+    def get_route(self, from_agent: str) -> str | None:
         """Get the default route for an agent."""
         return self._routes.get(from_agent)
 
@@ -60,7 +59,7 @@ class MessageRouter:
         """Broadcast via the message bus."""
         await self._bus.broadcast(sender_id, content, topic)
 
-    def list_channels(self) -> List[str]:
+    def list_channels(self) -> list[str]:
         """List all active channel keys."""
         return [k for k, ch in self._channels.items() if not ch.is_closed]
 

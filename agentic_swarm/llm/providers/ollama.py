@@ -1,8 +1,7 @@
 import json
-from typing import List, AsyncIterator
+from collections.abc import AsyncIterator
 
 from ..base import BaseLLMProvider, LLMMessage, LLMResponse
-
 
 MODEL_INFO = {
     "llama3.2": {"context": 8192, "input_cost": 0.0, "output_cost": 0.0},
@@ -27,18 +26,19 @@ class OllamaProvider(BaseLLMProvider):
         if self._client is None:
             try:
                 import httpx
+
                 self._client = httpx.AsyncClient(base_url=self.base_url, timeout=120.0)
             except ImportError:
-                raise ImportError("httpx package not installed. Run: pip install httpx")
+                raise ImportError("httpx package not installed. Run: pip install httpx") from None
         return self._client
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
+        messages: list[LLMMessage],
+        tools: list[dict] = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        **kwargs
+        **kwargs,
     ) -> LLMResponse:
         client = self._get_client()
 
@@ -82,10 +82,7 @@ class OllamaProvider(BaseLLMProvider):
         )
 
     async def stream(
-        self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
-        **kwargs
+        self, messages: list[LLMMessage], tools: list[dict] = None, **kwargs
     ) -> AsyncIterator[str]:
         client = self._get_client()
 

@@ -1,5 +1,6 @@
 """GitHub repository RAG data source."""
-from typing import AsyncIterator, List
+
+from collections.abc import AsyncIterator
 
 from .base import BaseSource, Document
 
@@ -12,7 +13,7 @@ class GitHubSource(BaseSource):
         repo: str,
         branch: str = "main",
         path: str = "",
-        extensions: List[str] = None,
+        extensions: list[str] = None,
         token: str = None,
     ):
         self._repo = repo
@@ -21,7 +22,7 @@ class GitHubSource(BaseSource):
         self._extensions = extensions or [".md", ".txt", ".py", ".js", ".ts"]
         self._token = token
 
-    async def load(self) -> List[Document]:
+    async def load(self) -> list[Document]:
         docs = []
         async for doc in self.load_lazy():
             docs.append(doc)
@@ -31,7 +32,7 @@ class GitHubSource(BaseSource):
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx package required for GitHubSource")
+            raise ImportError("httpx package required for GitHubSource") from None
 
         headers = {"Accept": "application/vnd.github.v3+json"}
         if self._token:
@@ -57,7 +58,9 @@ class GitHubSource(BaseSource):
                 if ext not in self._extensions:
                     continue
 
-                raw_url = f"https://raw.githubusercontent.com/{self._repo}/{self._branch}/{filepath}"
+                raw_url = (
+                    f"https://raw.githubusercontent.com/{self._repo}/{self._branch}/{filepath}"
+                )
                 try:
                     file_resp = await client.get(raw_url)
                     file_resp.raise_for_status()

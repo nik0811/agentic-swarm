@@ -10,8 +10,8 @@ from .iii_bridge import III_AVAILABLE
 # Only expose bridge classes if iii-sdk is available
 if III_AVAILABLE:
     from .iii_bridge import (
-        IIIWorkerBridge,
         IIISwarmBridge,
+        IIIWorkerBridge,
         register_agent_with_iii,
         register_swarm_with_iii,
     )

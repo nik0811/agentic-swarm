@@ -1,11 +1,13 @@
 import json
 from datetime import datetime
 from typing import Any
+
 from pydantic import BaseModel
 
 
 class DateTimeEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime objects."""
+
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()

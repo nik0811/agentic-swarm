@@ -1,10 +1,11 @@
 """Point-to-point communication channels between agents."""
-import asyncio
-from typing import Any, Optional
-from collections import deque
 
-from .protocols import Message, MessageType
+import asyncio
+from collections import deque
+from typing import Any
+
 from ..core.exceptions import ChannelClosedError
+from .protocols import Message, MessageType
 
 
 class Channel:
@@ -22,7 +23,9 @@ class Channel:
     def is_closed(self) -> bool:
         return self._closed
 
-    async def send(self, sender_id: str, content: Any, msg_type: MessageType = MessageType.DIRECT) -> None:
+    async def send(
+        self, sender_id: str, content: Any, msg_type: MessageType = MessageType.DIRECT
+    ) -> None:
         """Send a message through the channel."""
         if self._closed:
             raise ChannelClosedError("Channel is closed")
@@ -40,7 +43,7 @@ class Channel:
         else:
             await self._queue_a.put(message)
 
-    async def receive(self, agent_id: str, timeout: Optional[float] = None) -> Optional[Message]:
+    async def receive(self, agent_id: str, timeout: float | None = None) -> Message | None:
         """Receive a message from the channel."""
         if self._closed:
             return None

@@ -1,11 +1,14 @@
 """Abstract base class for RAG data sources."""
+
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
+
 from pydantic import BaseModel
 
 
 class Document(BaseModel):
     """A document retrieved from a source."""
+
     content: str
     source: str
     metadata: dict = {}
@@ -15,7 +18,7 @@ class BaseSource(ABC):
     """Interface for RAG data sources."""
 
     @abstractmethod
-    async def load(self) -> List[Document]:
+    async def load(self) -> list[Document]:
         """Load all documents from this source."""
         ...
 

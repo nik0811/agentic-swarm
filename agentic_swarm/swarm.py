@@ -1,18 +1,19 @@
 import asyncio
-from typing import Any, List, Literal, Optional
 from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from .agent import Agent
-from .core.exceptions import InvalidStrategyError
 from .communication.bus import MessageBus
 from .communication.protocols import Message, MessageType
+from .core.exceptions import InvalidStrategyError
 
 
 @dataclass
 class SwarmResult:
     """Result from swarm execution."""
-    results: List[Any] = field(default_factory=list)
-    errors: List[Exception] = field(default_factory=list)
+
+    results: list[Any] = field(default_factory=list)
+    errors: list[Exception] = field(default_factory=list)
     agent_results: dict = field(default_factory=dict)
 
     @property
@@ -23,7 +24,7 @@ class SwarmResult:
 class Swarm:
     """
     Swarm orchestrator that coordinates multiple agents.
-    
+
     Features per Architecture.md:
     - Task decomposition and delegation
     - Agent lifecycle management
@@ -35,7 +36,7 @@ class Swarm:
 
     def __init__(
         self,
-        agents: List[Agent] = None,
+        agents: list[Agent] = None,
         message_bus: MessageBus = None,
         max_retries: int = 3,
     ):
@@ -43,11 +44,11 @@ class Swarm:
         self._message_bus = message_bus or MessageBus()
         self._max_retries = max_retries
 
-        for agent in (agents or []):
+        for agent in agents or []:
             self.add_agent(agent)
 
     @property
-    def agents(self) -> List[Agent]:
+    def agents(self) -> list[Agent]:
         return list(self._agents.values())
 
     @property
@@ -76,13 +77,11 @@ class Swarm:
         return None
 
     async def run(
-        self,
-        task: str,
-        strategy: Literal["sequential", "parallel", "adaptive"] = "sequential"
+        self, task: str, strategy: Literal["sequential", "parallel", "adaptive"] = "sequential"
     ) -> SwarmResult:
         """
         Run a task across agents.
-        
+
         Strategies:
         - sequential: agents run one after another, each building on previous
         - parallel: all agents run simultaneously on the same task
@@ -107,7 +106,9 @@ class Swarm:
                 output = await self._run_with_retry(agent, current_task)
                 result.results.append(output)
                 result.agent_results[agent.name] = output
-                current_task = f"Previous agent ({agent.name}) output: {output}\n\nContinue with: {task}"
+                current_task = (
+                    f"Previous agent ({agent.name}) output: {output}\n\nContinue with: {task}"
+                )
             except Exception as e:
                 result.errors.append(e)
                 result.agent_results[agent.name] = {"error": str(e)}
@@ -125,8 +126,7 @@ class Swarm:
                 return agent.name, e
 
         outputs = await asyncio.gather(
-            *[run_agent(agent) for agent in self._agents.values()],
-            return_exceptions=True
+            *[run_agent(agent) for agent in self._agents.values()], return_exceptions=True
         )
 
         for output in outputs:
@@ -145,7 +145,7 @@ class Swarm:
 
     async def _run_adaptive(self, task: str) -> SwarmResult:
         """Decompose task and assign subtasks to best-fit agents.
-        
+
         Uses agent roles to match subtasks to capabilities.
         If an LLM router is available, uses it for decomposition.
         """
@@ -167,22 +167,28 @@ class Swarm:
                 result.results.append(output)
                 result.agent_results[agent.name] = output
 
-                await self._message_bus.publish(Message(
-                    type=MessageType.TASK_RESULT,
-                    sender_id=agent.id,
-                    content={"task": subtask, "result": str(output)[:500]},
-                ))
+                await self._message_bus.publish(
+                    Message(
+                        type=MessageType.TASK_RESULT,
+                        sender_id=agent.id,
+                        content={"task": subtask, "result": str(output)[:500]},
+                    )
+                )
             except Exception as e:
                 result.errors.append(e)
                 result.agent_results[agent.name] = {"error": str(e)}
 
         return result
 
-    def _decompose_task(self, task: str) -> List[str]:
+    def _decompose_task(self, task: str) -> list[str]:
         """Simple rule-based task decomposition."""
         indicators = [
-            " then ", " and then ", " after that ",
-            " next ", " finally ", " also ",
+            " then ",
+            " and then ",
+            " after that ",
+            " next ",
+            " finally ",
+            " also ",
         ]
 
         for indicator in indicators:
@@ -197,18 +203,18 @@ class Swarm:
 
         return [task]
 
-    def _assign_subtasks(self, subtasks: List[str]) -> List[tuple]:
+    def _assign_subtasks(self, subtasks: list[str]) -> list[tuple]:
         """Assign subtasks to agents based on role matching."""
         agents = list(self._agents.values())
         assignments = []
 
-        for i, subtask in enumerate(subtasks):
+        for _i, subtask in enumerate(subtasks):
             best_agent = self._find_best_agent(subtask, agents)
             assignments.append((best_agent, subtask))
 
         return assignments
 
-    def _find_best_agent(self, subtask: str, agents: List[Agent]) -> Agent:
+    def _find_best_agent(self, subtask: str, agents: list[Agent]) -> Agent:
         """Find the best agent for a subtask based on role keyword matching."""
         subtask_lower = subtask.lower()
         best_score = -1
@@ -241,21 +247,25 @@ class Swarm:
 
     async def delegate(self, from_agent: Agent, to_agent: Agent, task: str) -> Any:
         """Delegate a task from one agent to another via the message bus."""
-        await self._message_bus.publish(Message(
-            type=MessageType.TASK_DELEGATE,
-            sender_id=from_agent.id,
-            receiver_id=to_agent.id,
-            content=task,
-        ))
+        await self._message_bus.publish(
+            Message(
+                type=MessageType.TASK_DELEGATE,
+                sender_id=from_agent.id,
+                receiver_id=to_agent.id,
+                content=task,
+            )
+        )
 
         result = await to_agent.run(task)
 
-        await self._message_bus.publish(Message(
-            type=MessageType.TASK_RESULT,
-            sender_id=to_agent.id,
-            receiver_id=from_agent.id,
-            content=str(result)[:500],
-        ))
+        await self._message_bus.publish(
+            Message(
+                type=MessageType.TASK_RESULT,
+                sender_id=to_agent.id,
+                receiver_id=from_agent.id,
+                content=str(result)[:500],
+            )
+        )
 
         return result
 
@@ -286,22 +296,24 @@ class Swarm:
 
     def _create_message_handler(self, agent: Agent):
         """Create a message handler for an agent."""
+
         async def handler(message: Message):
             if message.type == MessageType.TASK_DELEGATE:
                 agent._recall_memory.push(
-                    f"Delegated task from {message.sender_id}: {message.content}",
-                    role="system"
+                    f"Delegated task from {message.sender_id}: {message.content}", role="system"
                 )
             elif message.type == MessageType.CONTEXT_SHARE:
                 agent._recall_memory.push(
-                    f"Context from {message.sender_id}: {message.content}",
-                    role="system"
+                    f"Context from {message.sender_id}: {message.content}", role="system"
                 )
             elif message.type == MessageType.HEALTH_PING:
-                await self._message_bus.publish(Message(
-                    type=MessageType.STATUS,
-                    sender_id=agent.id,
-                    receiver_id=message.sender_id,
-                    content={"state": agent.state.value},
-                ))
+                await self._message_bus.publish(
+                    Message(
+                        type=MessageType.STATUS,
+                        sender_id=agent.id,
+                        receiver_id=message.sender_id,
+                        content={"state": agent.state.value},
+                    )
+                )
+
         return handler

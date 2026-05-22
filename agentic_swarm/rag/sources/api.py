@@ -1,5 +1,7 @@
 """REST API RAG data source."""
-from typing import Any, AsyncIterator, Dict, List, Optional
+
+from collections.abc import AsyncIterator
+from typing import Any
 
 from .base import BaseSource, Document
 
@@ -9,8 +11,8 @@ class APISource(BaseSource):
 
     def __init__(
         self,
-        endpoints: List[Dict[str, Any]],
-        headers: Optional[Dict[str, str]] = None,
+        endpoints: list[dict[str, Any]],
+        headers: dict[str, str] | None = None,
         timeout: int = 30,
     ):
         """
@@ -28,7 +30,7 @@ class APISource(BaseSource):
         self._headers = headers or {}
         self._timeout = timeout
 
-    async def load(self) -> List[Document]:
+    async def load(self) -> list[Document]:
         docs = []
         async for doc in self.load_lazy():
             docs.append(doc)
@@ -38,7 +40,7 @@ class APISource(BaseSource):
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx package required for APISource")
+            raise ImportError("httpx package required for APISource") from None
 
         async with httpx.AsyncClient(timeout=self._timeout, headers=self._headers) as client:
             for endpoint in self._endpoints:

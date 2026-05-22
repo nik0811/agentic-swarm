@@ -1,9 +1,11 @@
 """Message protocols for agent communication."""
-from enum import Enum
-from typing import Any, Dict, Optional
-from datetime import datetime, timezone
-from pydantic import BaseModel, Field
+
 import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class MessageType(str, Enum):
@@ -30,20 +32,22 @@ class Priority(int, Enum):
 
 class Message(BaseModel):
     """Structured message for agent-to-agent communication."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: MessageType = MessageType.DIRECT
     sender_id: str
-    receiver_id: Optional[str] = None
+    receiver_id: str | None = None
     content: Any = None
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     priority: Priority = Priority.NORMAL
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    reply_to: Optional[str] = None
-    ttl: Optional[int] = None
+    reply_to: str | None = None
+    ttl: int | None = None
 
 
 class Protocol(str, Enum):
     """Communication protocol between agents."""
+
     REQUEST_RESPONSE = "request_response"
     PUBLISH_SUBSCRIBE = "publish_subscribe"
     FIRE_AND_FORGET = "fire_and_forget"

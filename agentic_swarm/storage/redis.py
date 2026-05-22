@@ -1,6 +1,7 @@
 """Redis-based storage backend for distributed deployments."""
+
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BaseStorage
 
@@ -9,10 +10,7 @@ class RedisStorage(BaseStorage):
     """Redis storage backend. Requires `redis` package."""
 
     def __init__(
-        self,
-        url: str = "redis://localhost:6379",
-        prefix: str = "agentic_swarm:",
-        **kwargs
+        self, url: str = "redis://localhost:6379", prefix: str = "agentic_swarm:", **kwargs
     ):
         self._url = url
         self._prefix = prefix
@@ -23,22 +21,23 @@ class RedisStorage(BaseStorage):
         if self._client is None:
             try:
                 import redis.asyncio as aioredis
+
                 self._client = aioredis.from_url(self._url, **self._kwargs)
             except ImportError:
-                raise ImportError("redis package not installed. Run: pip install redis")
+                raise ImportError("redis package not installed. Run: pip install redis") from None
         return self._client
 
     def _make_key(self, key: str) -> str:
         return f"{self._prefix}{key}"
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         client = self._get_client()
         data = await client.get(self._make_key(key))
         if data is None:
             return None
         return json.loads(data)
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         client = self._get_client()
         data = json.dumps(value, default=str)
         if ttl:
@@ -55,7 +54,7 @@ class RedisStorage(BaseStorage):
         client = self._get_client()
         return await client.exists(self._make_key(key)) > 0
 
-    async def list_keys(self, prefix: str = "") -> List[str]:
+    async def list_keys(self, prefix: str = "") -> list[str]:
         client = self._get_client()
         pattern = f"{self._prefix}{prefix}*"
         keys = []
@@ -70,7 +69,7 @@ class RedisStorage(BaseStorage):
         async for key in client.scan_iter(match=pattern):
             await client.delete(key)
 
-    async def get_many(self, keys: List[str]) -> Dict[str, Any]:
+    async def get_many(self, keys: list[str]) -> dict[str, Any]:
         client = self._get_client()
         full_keys = [self._make_key(k) for k in keys]
         values = await client.mget(full_keys)

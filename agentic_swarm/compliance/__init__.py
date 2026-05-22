@@ -1,4 +1,4 @@
-from .audit import AuditLogger, AuditEventType, AuditEntry
+from .audit import AuditEntry, AuditEventType, AuditLogger
 from .encryption import Encryption
 from .isolation import DataIsolation, RBACManager
 

@@ -1,8 +1,7 @@
 import re
-from typing import Optional
 
 
-def validate_agent_name(name: str) -> Optional[str]:
+def validate_agent_name(name: str) -> str | None:
     """Validate agent name. Returns error message or None if valid."""
     if not name:
         return "Agent name cannot be empty"
@@ -13,7 +12,7 @@ def validate_agent_name(name: str) -> Optional[str]:
     return None
 
 
-def validate_model_name(model: str) -> Optional[str]:
+def validate_model_name(model: str) -> str | None:
     """Validate model name. Returns error message or None if valid."""
     if not model:
         return "Model name cannot be empty"
@@ -22,14 +21,14 @@ def validate_model_name(model: str) -> Optional[str]:
     return None
 
 
-def validate_temperature(temperature: float) -> Optional[str]:
+def validate_temperature(temperature: float) -> str | None:
     """Validate temperature parameter."""
     if not 0.0 <= temperature <= 2.0:
         return "Temperature must be between 0.0 and 2.0"
     return None
 
 
-def validate_max_tokens(max_tokens: int) -> Optional[str]:
+def validate_max_tokens(max_tokens: int) -> str | None:
     """Validate max_tokens parameter."""
     if max_tokens < 1:
         return "max_tokens must be at least 1"
