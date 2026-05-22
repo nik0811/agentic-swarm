@@ -30,7 +30,7 @@ class AuditEntry(BaseModel):
 
 
 class AuditLogger:
-    """Immutable audit logging for SOC2 compliance."""
+    """Immutable audit logging with tamper-proof checksums."""
     
     def __init__(self, log_path: str = None, in_memory: bool = True):
         self._log_path = log_path

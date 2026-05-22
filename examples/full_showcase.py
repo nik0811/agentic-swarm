@@ -25,7 +25,7 @@ Features demonstrated:
   8. Communication - Message bus
   9. Swarm - Parallel execution
   10. Lifecycle - Supervisor, Healer, Sandbox
-  11. SOC2 Compliance - Audit, Encryption, Access Control
+  11. Security Features - Audit, Encryption, Access Control
   12. Storage - Persistent local storage
   13. Token Management - Budget & compression
   14. Utilities - Crypto, validation, serialization
@@ -245,8 +245,8 @@ async def run_showcase(provider_name: str, model: Optional[str] = None, skip_llm
     else:
         print("    Skipped (--skip-llm flag)")
     
-    # --- 3. SOC2 Compliance ---
-    print("\n[3] SOC2 Compliance")
+    # --- 3. Security Features ---
+    print("\n[3] Security Features")
     audit = AuditLogger()
     access = AccessController()
     
@@ -568,7 +568,7 @@ async def run_showcase(provider_name: str, model: Optional[str] = None, skip_llm
     ✓ Communication ({len(bus._history)} messages via bus)
     ✓ Swarm (parallel execution)
     ✓ Lifecycle (supervisor, healer, sandbox)
-    ✓ SOC2 Compliance (audit, encryption, access control)
+    ✓ Security Features (audit, encryption, access control)
     ✓ Storage (LocalStorage with persistence)
     ✓ Token Management (budget={budget:,}, compression active)
     ✓ Utilities (crypto, validation, serialization)

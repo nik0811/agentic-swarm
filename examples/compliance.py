@@ -1,5 +1,5 @@
 """
-Example: SOC2 Compliance Features
+Example: Security & Compliance Features
 
 Demonstrates audit logging, encryption, data isolation, and access control.
 """

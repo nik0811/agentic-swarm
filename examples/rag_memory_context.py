@@ -43,7 +43,7 @@ and collaborate to solve complex problems. Key components:
 1. Separation of concerns: Each agent specializes in one domain
 2. Fault tolerance: Agents auto-heal on failure
 3. Scalability: Horizontal scaling via agent spawning
-4. Compliance: SOC2 audit logging from day one
+4. Compliance: Security audit logging from day one
 """,
     "memory_guide.md": """
 # Memory System Guide
@@ -251,7 +251,7 @@ async def main():
         "User prefers concise, technical explanations",
         "User is building a production multi-agent system",
         "User's stack: Python, AWS Bedrock, Docker",
-        "User needs SOC2 compliance for their deployment",
+        "User needs security compliance for their deployment",
         "Project deadline is Q3 2026",
     ]
     for fact in facts:

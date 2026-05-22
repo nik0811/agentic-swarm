@@ -1,0 +1,84 @@
+name: Update README Badges
+
+on:
+  push:
+    branches: [master]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Count tests
+        id: tests
+        run: |
+          TEST_COUNT=$(pytest tests/ --collect-only -q 2>/dev/null | grep "test" | tail -1 | grep -oE '[0-9]+' | head -1)
+          echo "count=$TEST_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Count LLM providers
+        id: providers
+        run: |
+          PROVIDER_COUNT=$(ls agentic_swarm/llm/providers/*.py | xargs -I{} basename {} .py | grep -v __init__ | grep -v base | wc -l | tr -d ' ')
+          echo "count=$PROVIDER_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Count examples
+        id: examples
+        run: |
+          EXAMPLE_COUNT=$(ls examples/*.py 2>/dev/null | wc -l | tr -d ' ')
+          echo "count=$EXAMPLE_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Update README badges
+        run: |
+          TEST_COUNT="${{ steps.tests.outputs.count }}"
+          PROVIDER_COUNT="${{ steps.providers.outputs.count }}"
+          EXAMPLE_COUNT="${{ steps.examples.outputs.count }}"
+          
+          # Update test count badge
+          sed -i "s|https://img.shields.io/badge/[0-9]*-Tests%20Passing|https://img.shields.io/badge/${TEST_COUNT}-Tests%20Passing|g" README.md
+          
+          # Update provider count badge
+          sed -i "s|https://img.shields.io/badge/[0-9]*-LLM%20Providers|https://img.shields.io/badge/${PROVIDER_COUNT}-LLM%20Providers|g" README.md
+          
+          # Update examples count badge
+          sed -i "s|https://img.shields.io/badge/[0-9]*-Examples|https://img.shields.io/badge/${EXAMPLE_COUNT}-Examples|g" README.md
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet README.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git commit -m "docs: auto-update README badges [skip ci]"
+          git push

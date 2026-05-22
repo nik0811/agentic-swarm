@@ -7,11 +7,21 @@ from .core.types import AgentState
 from .core.exceptions import ToolNotFoundError
 from .memory.core_memory import CoreMemory
 from .memory.recall_memory import RecallMemory
+from .memory.controller import MemoryController
 from .tools.base import Tool
 from .tools.discovery import ToolRegistry as ToolDiscovery, ToolSelector, get_global_registry as _get_discovery_registry
 from .llm.base import LLMMessage
 from .llm.router import LLMRouter
+from .llm.context_compressor import ContextCompressor
 from .lifecycle.spawner import Spawner
+from .lifecycle.sandbox import Sandbox, SandboxConfig
+from .compliance.isolation import DataIsolation
+from .vectordb.base import BaseVectorDB
+from .rag.embedder import Embedder
+
+
+# Global data isolation manager (shared across all agents)
+_global_isolation = DataIsolation()
 
 
 def get_tool_registry() -> ToolDiscovery:
@@ -35,9 +45,12 @@ class Agent:
     
     Features:
     - Tools with automatic discovery and retry
-    - Memory (core + recall)
+    - Memory (core + recall + archival with vector search)
     - Dynamic child agent creation
     - ReAct execution pattern
+    - Sandbox isolation (CPU, memory, timeout limits)
+    - Data isolation (agents cannot access each other's data)
+    - Never-forget memory: compresses, stores, searches, and injects memories
     
     Tool Discovery:
     - Pass tools directly: Agent(tools=[my_tool])
@@ -48,6 +61,17 @@ class Agent:
     Tool Retry:
     - On tool failure, automatically tries similar tools
     - Set tool_retry=3 for max retry attempts (default: 0 = disabled)
+    
+    Sandbox Isolation:
+    - Each agent runs in an isolated sandbox by default
+    - Configure with sandbox_config parameter
+    - Prevents resource abuse and data leakage
+    
+    Never-Forget Memory:
+    - Pass vectordb and embedder for long-term memory
+    - Auto-archives evicted recall entries
+    - Searches relevant memories and injects into context
+    - Persists across sessions when using persistent vectordb
     """
     
     _default_spawner = Spawner(max_depth=5, max_children=20)
@@ -65,6 +89,15 @@ class Agent:
         auto_tools: Union[bool, str] = False,
         tool_retry: int = 0,
         tool_categories: List[str] = None,
+        sandbox_config: SandboxConfig = None,
+        enable_isolation: bool = True,
+        tenant_id: str = None,
+        # Never-forget memory options
+        vectordb: BaseVectorDB = None,
+        embedder: Embedder = None,
+        auto_archive: bool = True,
+        auto_inject_memories: bool = True,
+        memory_search_limit: int = 3,
     ):
         self.id = str(uuid.uuid4())
         self.name = name
@@ -77,6 +110,18 @@ class Agent:
         self._spawner = spawner or (parent._spawner if parent else self._default_spawner)
         self._tool_retry = tool_retry
         self._tool_selector: Optional[ToolSelector] = None
+        
+        # Sandbox for isolated execution
+        self._sandbox = Sandbox(sandbox_config or SandboxConfig())
+        self._sandbox_config = sandbox_config
+        
+        # Data isolation
+        self._enable_isolation = enable_isolation
+        self._tenant_id = tenant_id or (parent._tenant_id if parent else None)
+        if enable_isolation:
+            self._namespace = _global_isolation.register_agent(self.id, self._tenant_id)
+        else:
+            self._namespace = f"agent:{self.id}"
         
         # Build tool set
         self.tools = {}
@@ -114,13 +159,38 @@ class Agent:
         if tool_retry > 0:
             self._tool_selector = ToolSelector(get_tool_registry(), max_retries=tool_retry)
         
-        self._core_memory = CoreMemory(
-            agent_id=self.id,
-            name=name,
-            persona=role,
-            capabilities=list(self.tools.keys()),
-        )
-        self._recall_memory = RecallMemory()
+        # Never-forget memory system
+        self._vectordb = vectordb
+        self._embedder = embedder
+        self._auto_inject_memories = auto_inject_memories
+        self._memory_search_limit = memory_search_limit
+        
+        # Use full MemoryController if vectordb provided, otherwise basic memory
+        if vectordb:
+            self._memory = MemoryController(
+                agent_id=self.id,
+                name=name,
+                persona=role,
+                capabilities=list(self.tools.keys()),
+                vectordb=vectordb,
+                embedder=embedder,
+                auto_archive=auto_archive,
+                auto_extract_facts=True,
+            )
+            self._core_memory = self._memory.core
+            self._recall_memory = self._memory.recall
+        else:
+            self._memory = None
+            self._core_memory = CoreMemory(
+                agent_id=self.id,
+                name=name,
+                persona=role,
+                capabilities=list(self.tools.keys()),
+            )
+            self._recall_memory = RecallMemory()
+        
+        # Context compressor for token management
+        self._compressor = ContextCompressor()
         
         if not parent:
             self._spawner.register_root(self.id)
@@ -137,9 +207,25 @@ class Agent:
         """
         Execute a task using ReAct pattern.
         Think -> Act -> Observe -> Loop
+        
+        Never-Forget Memory:
+        1. Search archival memory for relevant past memories
+        2. Inject relevant memories into context
+        3. Execute task with enriched context
+        4. Auto-archive important information
+        5. Flush to archival on completion
         """
         self._state = AgentState.RUNNING
-        self._recall_memory.push(task, role="user")
+        
+        # Search and inject relevant memories from archival
+        if self._memory and self._auto_inject_memories:
+            await self._inject_relevant_memories(task)
+        
+        # Use MemoryController if available, otherwise basic recall
+        if self._memory:
+            self._memory.push_recall(task, role="user")
+        else:
+            self._recall_memory.push(task, role="user")
         
         try:
             for iteration in range(self.max_iterations):
@@ -147,6 +233,9 @@ class Agent:
                 
                 if response.get("done"):
                     self._state = AgentState.DONE
+                    # Flush any pending memories to archival
+                    if self._memory:
+                        await self._memory.flush_to_archival()
                     return response.get("result")
                 
                 if tool_call := response.get("tool_call"):
@@ -154,18 +243,64 @@ class Agent:
                         tool_call["name"],
                         tool_call["arguments"]
                     )
-                    self._recall_memory.push(
-                        f"[Tool Result] {tool_call['name']}: {result}",
-                        role="user"
-                    )
+                    tool_result = f"[Tool Result] {tool_call['name']}: {result}"
+                    if self._memory:
+                        self._memory.push_recall(tool_result, role="user")
+                    else:
+                        self._recall_memory.push(tool_result, role="user")
             
             self._state = AgentState.DONE
+            # Flush any pending memories to archival
+            if self._memory:
+                await self._memory.flush_to_archival()
             return {"error": "Max iterations reached"}
             
         except Exception as e:
             self._state = AgentState.RECOVERING
             await self._recover(e)
             raise
+    
+    async def _inject_relevant_memories(self, task: str) -> None:
+        """Search archival memory and inject relevant memories into context."""
+        if not self._memory or not self._memory.archival:
+            return
+        
+        try:
+            # Search archival memory for relevant past memories
+            memories = await self._memory.search_archival(task, limit=self._memory_search_limit)
+            
+            if memories:
+                # Format memories for injection
+                memory_context = "[Relevant memories from past sessions]\n"
+                for mem in memories:
+                    memory_context += f"- {mem.content}\n"
+                
+                # Inject as system context
+                self._recall_memory.push(memory_context, role="system")
+        except Exception:
+            # Don't fail if memory search fails
+            pass
+    
+    async def remember(self, content: str, metadata: dict = None) -> Optional[str]:
+        """
+        Explicitly store something in long-term archival memory.
+        
+        Use this for important information that should persist across sessions.
+        Returns the memory ID if stored, None if no archival memory configured.
+        """
+        if self._memory:
+            return await self._memory.store_archival(content, metadata)
+        return None
+    
+    async def recall(self, query: str, limit: int = 5) -> List[Any]:
+        """
+        Search long-term archival memory for relevant information.
+        
+        Returns list of ArchivalEntry objects with content and metadata.
+        """
+        if self._memory:
+            return await self._memory.search_archival(query, limit)
+        return []
     
     async def _think(self) -> dict:
         """Get next action from LLM."""
@@ -189,7 +324,10 @@ class Agent:
         
         # Only push non-empty assistant responses
         if response.content:
-            self._recall_memory.push(response.content, role="assistant")
+            if self._memory:
+                self._memory.push_recall(response.content, role="assistant")
+            else:
+                self._recall_memory.push(response.content, role="assistant")
         
         if response.tool_calls:
             tool_call = response.tool_calls[0]
@@ -300,6 +438,74 @@ class Agent:
         
         # Remove from spawner tracking to prevent memory leak
         self._spawner.remove_agent(self.id)
+        
+        # Unregister from data isolation
+        if self._enable_isolation:
+            _global_isolation.unregister_agent(self.id)
+    
+    # --- Data Isolation Methods ---
+    
+    def isolate_data(self, data: dict) -> dict:
+        """Add isolation metadata to data, ensuring it's namespaced to this agent.
+        
+        Other agents cannot access this data unless explicitly granted access.
+        """
+        if not self._enable_isolation:
+            return data
+        return _global_isolation.isolate_data(data, self.id)
+    
+    def can_access(self, resource: str) -> bool:
+        """Check if this agent can access a resource.
+        
+        Returns True if:
+        - Isolation is disabled
+        - Resource is in agent's namespace
+        - Agent has been granted explicit access
+        """
+        if not self._enable_isolation:
+            return True
+        return _global_isolation.validate_access(self.id, resource)
+    
+    def grant_access_to(self, other_agent: "Agent", resource: str = None) -> None:
+        """Grant another agent access to this agent's data.
+        
+        Args:
+            other_agent: The agent to grant access to
+            resource: Specific resource to grant access to (default: this agent's namespace)
+        """
+        if not self._enable_isolation:
+            return
+        resource = resource or self._namespace
+        _global_isolation.grant_access(other_agent.id, resource)
+    
+    def revoke_access_from(self, other_agent: "Agent", resource: str = None) -> None:
+        """Revoke another agent's access to this agent's data."""
+        if not self._enable_isolation:
+            return
+        resource = resource or self._namespace
+        _global_isolation.revoke_access(other_agent.id, resource)
+    
+    @property
+    def namespace(self) -> str:
+        """Get this agent's data namespace."""
+        return self._namespace
+    
+    @property
+    def sandbox(self) -> Sandbox:
+        """Get this agent's sandbox for isolated execution."""
+        return self._sandbox
+    
+    async def execute_isolated(self, func, *args, **kwargs) -> Any:
+        """Execute a function in this agent's sandbox.
+        
+        The sandbox enforces:
+        - CPU limits
+        - Memory limits  
+        - Timeout limits
+        
+        Raises SandboxTimeoutError if execution exceeds timeout.
+        """
+        return await self._sandbox.execute(func, *args, **kwargs)
     
     def __eq__(self, other):
         if not isinstance(other, Agent):

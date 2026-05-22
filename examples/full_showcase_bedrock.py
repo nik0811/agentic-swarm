@@ -12,7 +12,7 @@ This example combines EVERY feature of the Agentic Swarm SDK into one workflow:
 7. Inter-Agent Communication (Message Bus + Channels)
 8. Swarm Orchestration (Parallel + Sequential + Adaptive)
 9. Lifecycle (Supervisor + Healer + Sandbox)
-10. SOC2 Compliance (Audit Log + Encryption + Access Control)
+10. Security Features (Audit Log + Encryption + Access Control)
 11. Storage (LocalStorage persistence)
 12. Token Management + Context Compression
 13. Utilities (Validation, Crypto, Serialization)
@@ -202,7 +202,7 @@ async def main():
     print(f"    Prefix cache savings estimate: {savings['savings_pct']}% over 50 calls")
 
     # ── 3. Compliance Setup ──
-    print("\n[3] SOC2 Compliance")
+    print("\n[3] Security Features")
     audit = AuditLogger()
     encryption = Encryption(Encryption.generate_key())
     access_ctrl = AccessController()
@@ -245,7 +245,7 @@ async def main():
     _memory.push_recall("User wants a complete demo of the SDK", role="user")
     _memory.push_recall("Starting full showcase with all features", role="assistant")
     await _memory.store_archival("User's project uses AWS Bedrock in production")
-    await _memory.store_archival("Team requires SOC2 compliance documentation")
+    await _memory.store_archival("Team requires security compliance documentation")
     print(f"    Core: {_memory.core.name} ({_memory.core.persona})")
     print(f"    Recall: {len(_memory.recall.get_all())} entries")
     archival = await _memory.search_archival("Bedrock")
@@ -488,7 +488,7 @@ async def main():
     ✓ Communication ({len(history)} messages via bus)
     ✓ Swarm (parallel execution, {len(swarm_result.results)} results)
     ✓ Lifecycle (supervisor monitoring, healer snapshots, sandbox isolation)
-    ✓ SOC2 Compliance (audit={len(audit._entries)} entries, encryption, access control)
+    ✓ Security Features (audit={len(audit._entries)} entries, encryption, access control)
     ✓ Storage (LocalStorage with session persistence)
     ✓ Token Management (budget={budget:,}, compression active)
     ✓ Utilities (crypto, validation, serialization)

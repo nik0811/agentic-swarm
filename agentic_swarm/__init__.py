@@ -5,6 +5,9 @@ from .tools.base import Tool, ToolSchema
 from .tools.registry import ToolRegistry
 from .core.config import SDKConfig, get_config, set_config, reset_config
 
+# Optional integrations (available if dependencies installed)
+from . import integrations
+
 __version__ = "0.1.0"
 __all__ = [
     "Agent",
@@ -20,4 +23,5 @@ __all__ = [
     "reset_config",
     "register_tool",
     "get_tool_registry",
+    "integrations",
 ]
