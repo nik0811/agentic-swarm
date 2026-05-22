@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Agentic Swarm Banner" width="100%">
+  <img src="https://raw.githubusercontent.com/nik0811/agentic-swarm/master/assets/banner.png" alt="Agentic Swarm Banner" width="100%">
 </p>
 
 <p align="center">
-  <img src="assets/logo.png" alt="Agentic Swarm Logo" width="120">
+  <img src="https://raw.githubusercontent.com/nik0811/agentic-swarm/master/assets/logo.png" alt="Agentic Swarm Logo" width="120">
 </p>
 
 <p align="center">
