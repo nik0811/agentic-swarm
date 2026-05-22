@@ -18,9 +18,9 @@ This example combines EVERY feature of the Agentic Swarm SDK into one workflow:
 13. Utilities (Validation, Crypto, Serialization)
 
 Run with:
-  export REEVIX_BEDROCK_ACCESS_KEY_ID=your_key
-  export REEVIX_BEDROCK_SECRET_ACCESS_KEY=your_secret
-  export REEVIX_BEDROCK_REGION=us-east-1
+  export AWS_ACCESS_KEY_ID=your_key
+  export AWS_SECRET_ACCESS_KEY=your_secret
+  export AWS_REGION=us-east-1
   python examples/full_showcase_bedrock.py
 """
 
@@ -91,10 +91,10 @@ def setup_router() -> LLMRouter:
     )
 
     bedrock = BedrockProvider(
-        model=os.getenv("REEVIX_BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-6"),
-        region=os.getenv("REEVIX_BEDROCK_REGION", "us-east-1"),
-        aws_access_key_id=os.getenv("REEVIX_BEDROCK_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("REEVIX_BEDROCK_SECRET_ACCESS_KEY"),
+        model=os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-6"),
+        region=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
     router.register_provider("bedrock", bedrock)
 

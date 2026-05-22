@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from typing import List, AsyncIterator
 
 from ..base import BaseLLMProvider, LLMMessage, LLMResponse

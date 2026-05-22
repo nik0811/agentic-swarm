@@ -8,10 +8,10 @@ A real end-to-end workflow where:
 4. Parent reads all outputs and produces a final synthesized result
 
 Requires: AWS credentials set in environment variables:
-  - REEVIX_BEDROCK_REGION (default: us-east-1)
-  - REEVIX_BEDROCK_ACCESS_KEY_ID
-  - REEVIX_BEDROCK_SECRET_ACCESS_KEY
-  - REEVIX_BEDROCK_MODEL_ID (default: us.anthropic.claude-sonnet-4-20250514-v2:0)
+  - AWS_REGION (default: us-east-1)
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - BEDROCK_MODEL_ID (default: us.anthropic.claude-sonnet-4-20250514-v2:0)
 """
 
 import os
@@ -57,10 +57,10 @@ def create_bedrock_router() -> LLMRouter:
     router = LLMRouter(strategy="cost_optimized")
 
     bedrock = BedrockProvider(
-        model=os.getenv("REEVIX_BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v2:0"),
-        region=os.getenv("REEVIX_BEDROCK_REGION", "us-east-1"),
-        aws_access_key_id=os.getenv("REEVIX_BEDROCK_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("REEVIX_BEDROCK_SECRET_ACCESS_KEY"),
+        model=os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v2:0"),
+        region=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
     router.register_provider("bedrock", bedrock)
     return router
@@ -79,8 +79,8 @@ async def main():
     # -- Step 1: Create Bedrock-powered LLM Router --
     print("\n[1] Initializing Bedrock LLM Router...")
     router = create_bedrock_router()
-    print(f"    Model: {os.getenv('REEVIX_BEDROCK_MODEL_ID', 'us.anthropic.claude-sonnet-4-20250514-v2:0')}")
-    print(f"    Region: {os.getenv('REEVIX_BEDROCK_REGION', 'us-east-1')}")
+    print(f"    Model: {os.getenv('BEDROCK_MODEL_ID', 'us.anthropic.claude-sonnet-4-20250514-v2:0')}")
+    print(f"    Region: {os.getenv('AWS_REGION', 'us-east-1')}")
 
     # -- Step 2: Create parent coordinator with LLM --
     print("\n[2] Creating parent coordinator agent...")
@@ -150,9 +150,9 @@ async def main():
         if "credentials" in str(e).lower() or "NoCredentials" in str(e):
             print(f"\n    ⚠ AWS credentials not configured: {type(e).__name__}")
             print("    Set these environment variables to run with real Bedrock:")
-            print("      export REEVIX_BEDROCK_ACCESS_KEY_ID=your_key")
-            print("      export REEVIX_BEDROCK_SECRET_ACCESS_KEY=your_secret")
-            print("      export REEVIX_BEDROCK_REGION=us-east-1")
+            print("      export AWS_ACCESS_KEY_ID=your_key")
+            print("      export AWS_SECRET_ACCESS_KEY=your_secret")
+            print("      export AWS_REGION=us-east-1")
             print("\n    Running in demo mode with simulated outputs...\n")
             research_result = (
                 "Found 3 papers on multi-agent AI systems. Key findings: "

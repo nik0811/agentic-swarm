@@ -127,16 +127,16 @@ The agent's LLM decides when and how to call tools.
 
 def create_router() -> LLMRouter | None:
     """Create Bedrock router if credentials available."""
-    key = os.getenv("REEVIX_BEDROCK_ACCESS_KEY_ID")
+    key = os.getenv("AWS_ACCESS_KEY_ID")
     if not key:
         return None
 
     router = LLMRouter(strategy="cost_optimized")
     bedrock = BedrockProvider(
-        model=os.getenv("REEVIX_BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v2:0"),
-        region=os.getenv("REEVIX_BEDROCK_REGION", "us-east-1"),
+        model=os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v2:0"),
+        region=os.getenv("AWS_REGION", "us-east-1"),
         aws_access_key_id=key,
-        aws_secret_access_key=os.getenv("REEVIX_BEDROCK_SECRET_ACCESS_KEY"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
     router.register_provider("bedrock", bedrock)
     return router
