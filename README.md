@@ -29,10 +29,10 @@
 
 <p align="center">
   <a href="README.md"><img src="https://img.shields.io/badge/📖-README-blue" alt="README"></a>
-  <a href="CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/🤝-Code%20of%20Conduct-green" alt="Code of Conduct"></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/👥-Contributing-orange" alt="Contributing"></a>
+  <a href=".github/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/🤝-Code%20of%20Conduct-green" alt="Code of Conduct"></a>
+  <a href=".github/CONTRIBUTING.md"><img src="https://img.shields.io/badge/👥-Contributing-orange" alt="Contributing"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/📜-Apache%202.0-red" alt="License"></a>
-  <a href="SECURITY.md"><img src="https://img.shields.io/badge/🔒-Security-purple" alt="Security"></a>
+  <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/🔒-Security-purple" alt="Security"></a>
 </p>
 
 ---
@@ -165,7 +165,7 @@ result = await agent.run("What are my preferences?")
 | [Configuration](docs/configuration.md) | All configurable parameters |
 | [API Reference](docs/api-reference.md) | Complete API documentation |
 | [Examples](docs/examples.md) | Code examples and tutorials |
-| [Architecture](ARCHITECTURE.md) | System design |
+| [Architecture](docs/ARCHITECTURE.md) | System design |
 
 ## Examples
 
@@ -189,10 +189,10 @@ We welcome contributions! Please see our contributing guidelines.
 | Resource | Link |
 |----------|------|
 | 📖 README | [README.md](README.md) |
-| 🤝 Code of Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| 👥 Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 🤝 Code of Conduct | [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) |
+| 👥 Contributing | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
 | 📜 License | [Apache 2.0](LICENSE) |
-| 🔒 Security | [SECURITY.md](SECURITY.md) |
+| 🔒 Security | [SECURITY.md](.github/SECURITY.md) |
 
 ### Development Setup
 
