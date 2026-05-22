@@ -60,10 +60,10 @@ def create_bedrock_router() -> LLMRouter:
     router = LLMRouter(strategy="cost_optimized")
     
     bedrock = BedrockProvider(
-        model=os.getenv("REEVIX_BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1"),
-        region=os.getenv("REEVIX_BEDROCK_REGION", "us-east-1"),
-        aws_access_key_id=os.getenv("REEVIX_BEDROCK_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("REEVIX_BEDROCK_SECRET_ACCESS_KEY"),
+        model=os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-6-v1"),
+        region=os.getenv("AWS_REGION", "us-east-1"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     )
     router.register_provider("bedrock", bedrock)
     

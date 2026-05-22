@@ -22,6 +22,12 @@ class GeminiProvider(BaseLLMProvider):
         super().__init__(model, api_key, **kwargs)
         self._model_info = MODEL_INFO.get(model, DEFAULT_MODEL_INFO)
         self._client = None
+    
+    def _get_model_name(self) -> str:
+        """Get the full model name with models/ prefix if needed."""
+        if self.model.startswith("models/"):
+            return self.model
+        return f"models/{self.model}"
 
     def _get_client(self):
         if self._client is None:
@@ -47,7 +53,7 @@ class GeminiProvider(BaseLLMProvider):
                 content = msg.content or ""
                 if not content.strip():
                     continue
-                role = "user" if msg.role == "user" else "model"
+                role = "user" if msg.role in ("user", "tool") else "model"
                 if converted and converted[-1]["role"] == role:
                     converted[-1]["parts"][0]["text"] += "\n" + content
                 else:
@@ -102,16 +108,14 @@ class GeminiProvider(BaseLLMProvider):
             ])]
 
         contents = [
-            types.Content(role=m["role"], parts=[types.Part.from_text(p["text"]) for p in m["parts"]])
+            types.Content(role=m["role"], parts=[types.Part(text=p["text"]) for p in m["parts"]])
             for m in converted_messages
         ]
 
         import asyncio
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
+        response = await asyncio.to_thread(
             lambda: client.models.generate_content(
-                model=self.model,
+                model=self._get_model_name(),
                 contents=contents,
                 config=config,
             )
@@ -171,21 +175,20 @@ class GeminiProvider(BaseLLMProvider):
             config.system_instruction = system
 
         contents = [
-            types.Content(role=m["role"], parts=[types.Part.from_text(p["text"]) for p in m["parts"]])
+            types.Content(role=m["role"], parts=[types.Part(text=p["text"]) for p in m["parts"]])
             for m in converted_messages
         ]
 
         import asyncio
-        loop = asyncio.get_event_loop()
 
         def _stream():
             return client.models.generate_content_stream(
-                model=self.model,
+                model=self._get_model_name(),
                 contents=contents,
                 config=config,
             )
 
-        stream = await loop.run_in_executor(None, _stream)
+        stream = await asyncio.to_thread(_stream)
         for chunk in stream:
             if chunk.text:
                 yield chunk.text

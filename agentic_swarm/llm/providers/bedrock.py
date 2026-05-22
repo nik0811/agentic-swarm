@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from typing import List, AsyncIterator
 
 from ..base import BaseLLMProvider, LLMMessage, LLMResponse
@@ -66,7 +67,7 @@ class BedrockProvider(BaseLLMProvider):
                 content = msg.content or ""
                 if not content.strip():
                     continue
-                role = "user" if msg.role == "user" else "assistant"
+                role = "user" if msg.role in ("user", "tool") else "assistant"
                 if converted and converted[-1]["role"] == role:
                     converted[-1]["content"][0]["text"] += "\n" + content
                 else:
@@ -124,12 +125,8 @@ class BedrockProvider(BaseLLMProvider):
         if tools:
             request["toolConfig"] = {"tools": self._convert_tools(tools)}
         
-        import asyncio
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.converse(**request)
-        )
+        # Use asyncio.to_thread for sync boto3 call (Python 3.9+)
+        response = await asyncio.to_thread(client.converse, **request)
         
         content = ""
         tool_calls = []
@@ -180,11 +177,7 @@ class BedrockProvider(BaseLLMProvider):
             request["system"] = [{"text": system}]
         
         import asyncio
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.converse_stream(**request)
-        )
+        response = await asyncio.to_thread(client.converse_stream, **request)
         
         for event in response.get("stream", []):
             if "contentBlockDelta" in event:

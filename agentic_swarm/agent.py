@@ -1,22 +1,53 @@
 import uuid
 import json
 import asyncio
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from .core.types import AgentState
 from .core.exceptions import ToolNotFoundError
 from .memory.core_memory import CoreMemory
 from .memory.recall_memory import RecallMemory
 from .tools.base import Tool
+from .tools.discovery import ToolRegistry as ToolDiscovery, ToolSelector, get_global_registry as _get_discovery_registry
 from .llm.base import LLMMessage
 from .llm.router import LLMRouter
 from .lifecycle.spawner import Spawner
 
 
+def get_tool_registry() -> ToolDiscovery:
+    """Get the global tool registry (from discovery module)."""
+    return _get_discovery_registry()
+
+
+def register_tool(
+    tool: Tool,
+    category: str = "general",
+    keywords: List[str] = None
+) -> Tool:
+    """Register a tool globally for auto-discovery by agents."""
+    get_tool_registry().register(tool, category, keywords)
+    return tool
+
+
 class Agent:
     """
     Base Agent class with lifecycle management.
-    Supports tools, memory, and dynamic agent creation.
+    
+    Features:
+    - Tools with automatic discovery and retry
+    - Memory (core + recall)
+    - Dynamic child agent creation
+    - ReAct execution pattern
+    
+    Tool Discovery:
+    - Pass tools directly: Agent(tools=[my_tool])
+    - Auto-discover from registry: Agent(auto_tools=True)
+    - Auto-discover for task: Agent(auto_tools="search database")
+    - Combine both: Agent(tools=[must_have], auto_tools=True)
+    
+    Tool Retry:
+    - On tool failure, automatically tries similar tools
+    - Set tool_retry=3 for max retry attempts (default: 0 = disabled)
     """
     
     _default_spawner = Spawner(max_depth=5, max_children=20)
@@ -31,10 +62,12 @@ class Agent:
         max_iterations: int = 10,
         parent: "Agent" = None,
         spawner: Spawner = None,
+        auto_tools: Union[bool, str] = False,
+        tool_retry: int = 0,
+        tool_categories: List[str] = None,
     ):
         self.id = str(uuid.uuid4())
         self.name = name
-        self.tools = {t.name: t for t in (tools or [])}
         self.llm_model = llm
         self.llm_router = llm_router
         self.max_iterations = max_iterations
@@ -42,6 +75,44 @@ class Agent:
         self._state = AgentState.CREATED
         self._children: List["Agent"] = []
         self._spawner = spawner or (parent._spawner if parent else self._default_spawner)
+        self._tool_retry = tool_retry
+        self._tool_selector: Optional[ToolSelector] = None
+        
+        # Build tool set
+        self.tools = {}
+        
+        # Add explicitly provided tools
+        if tools:
+            for t in tools:
+                self.tools[t.name] = t
+        
+        # Auto-discover tools from global registry
+        if auto_tools:
+            registry = get_tool_registry()
+            
+            if isinstance(auto_tools, str):
+                # Search by task description
+                category_filter = tool_categories[0] if tool_categories and len(tool_categories) > 0 else None
+                matches = registry.search(auto_tools, limit=10, category=category_filter)
+                for m in matches:
+                    if m.tool.name not in self.tools:
+                        self.tools[m.tool.name] = m.tool
+            elif tool_categories and len(tool_categories) > 0:
+                # Get tools from specific categories
+                for cat in tool_categories:
+                    for t in registry.get_by_category(cat):
+                        if t.name not in self.tools:
+                            self.tools[t.name] = t
+            else:
+                # Get all registered tools
+                for name in registry.list_all():
+                    t = registry.get(name)
+                    if t and t.name not in self.tools:
+                        self.tools[t.name] = t
+        
+        # Setup tool selector for retry
+        if tool_retry > 0:
+            self._tool_selector = ToolSelector(get_tool_registry(), max_retries=tool_retry)
         
         self._core_memory = CoreMemory(
             agent_id=self.id,
@@ -84,8 +155,8 @@ class Agent:
                         tool_call["arguments"]
                     )
                     self._recall_memory.push(
-                        f"Tool {tool_call['name']} returned: {result}",
-                        role="tool"
+                        f"[Tool Result] {tool_call['name']}: {result}",
+                        role="user"
                     )
             
             self._state = AgentState.DONE
@@ -116,7 +187,9 @@ class Agent:
             force_model=self.llm_model,
         )
         
-        self._recall_memory.push(response.content or "", role="assistant")
+        # Only push non-empty assistant responses
+        if response.content:
+            self._recall_memory.push(response.content, role="assistant")
         
         if response.tool_calls:
             tool_call = response.tool_calls[0]
@@ -136,12 +209,32 @@ class Agent:
         return {"done": True, "result": response.content}
     
     async def _execute_tool(self, name: str, arguments: dict) -> Any:
-        """Execute a tool by name."""
+        """Execute a tool by name with optional retry on failure."""
         tool = self.tools.get(name)
+        
+        if not tool:
+            # Try to find tool in global registry
+            registry = get_tool_registry()
+            tool = registry.get(name)
+            if tool:
+                self.tools[name] = tool
+        
         if not tool:
             raise ToolNotFoundError(f"Tool '{name}' not found")
         
-        return await tool.execute(**arguments)
+        try:
+            return await tool.execute(**arguments)
+        except Exception as e:
+            # If retry is enabled, try alternative tools
+            if self._tool_selector and self._tool_retry > 0:
+                result = await self._tool_selector.execute_with_retry(
+                    task_description=tool.description,
+                    arguments=arguments
+                )
+                if result.success:
+                    return result.result
+                raise ToolNotFoundError(f"Tool '{name}' and alternatives failed: {result.error}")
+            raise
     
     async def _recover(self, error: Exception) -> None:
         """Attempt to recover from error."""
@@ -204,6 +297,9 @@ class Agent:
         
         self._state = AgentState.TERMINATED
         self._recall_memory.clear()
+        
+        # Remove from spawner tracking to prevent memory leak
+        self._spawner.remove_agent(self.id)
     
     def __eq__(self, other):
         if not isinstance(other, Agent):

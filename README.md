@@ -848,10 +848,61 @@ agentic-swarm/
 | [`sub_agent_spawning.py`](examples/sub_agent_spawning.py) | Dynamic sub-agent creation at runtime |
 | [`memory_usage.py`](examples/memory_usage.py) | All three memory tiers in action |
 | [`rag_pipeline.py`](examples/rag_pipeline.py) | Document ingestion and retrieval |
+| [`full_showcase.py`](examples/full_showcase.py) | **Complete SDK showcase with all providers** (OpenAI, Anthropic, Bedrock, Gemini, Groq, Ollama, vLLM) |
+| [`full_showcase_bedrock.py`](examples/full_showcase_bedrock.py) | Full SDK showcase specifically for AWS Bedrock |
 | [`immortal_swarm_bedrock.py`](examples/immortal_swarm_bedrock.py) | Full immortal swarm with AWS Bedrock, auto-healing, and agent communication |
+| [`agent_collaboration_bedrock.py`](examples/agent_collaboration_bedrock.py) | Parent-child agent collaboration with Bedrock |
+| [`auto_tools.py`](examples/auto_tools.py) | Automatic tool discovery and retry |
+| [`custom_tools.py`](examples/custom_tools.py) | Creating and registering custom tools |
 | [`communication.py`](examples/communication.py) | Message bus and channels between agents |
 | [`storage_example.py`](examples/storage_example.py) | Persistent state with local and Redis storage |
 | [`rag_sources.py`](examples/rag_sources.py) | Ingest from GitHub, web, and files |
+| [`rag_memory_context.py`](examples/rag_memory_context.py) | RAG + Memory + Context management combined |
+
+### Running the Full Showcase
+
+The `full_showcase.py` example demonstrates all 19 SDK features with any LLM provider:
+
+```bash
+# Run with OpenAI (default)
+python examples/full_showcase.py --provider openai
+
+# Run with Anthropic
+python examples/full_showcase.py --provider anthropic --model claude-3-5-sonnet-latest
+
+# Run with AWS Bedrock
+python examples/full_showcase.py --provider bedrock --model us.anthropic.claude-sonnet-4-6
+
+# Run with Groq (fast inference)
+python examples/full_showcase.py --provider groq --model llama-3.1-70b-versatile
+
+# Run with Ollama (local)
+python examples/full_showcase.py --provider ollama --model llama3.2
+
+# Run with Google Gemini
+python examples/full_showcase.py --provider gemini --model gemini-1.5-pro
+
+# Run in demo mode (no LLM calls)
+python examples/full_showcase.py --skip-llm
+```
+
+Features demonstrated:
+1. SDKConfig - Custom configuration
+2. LLM Providers - All 7 supported providers
+3. Prompt Cache - Response caching
+4. Agent Spawning - Parent/child agents
+5. Tool Calling - Custom tools
+6. Memory - Core + Recall + Archival
+7. RAG Pipeline - Document ingestion & retrieval
+8. Communication - Message bus
+9. Swarm - Parallel execution
+10. Lifecycle - Supervisor, Healer, Sandbox
+11. SOC2 Compliance - Audit, Encryption, Access Control
+12. Storage - Persistent local storage
+13. Token Management - Budget & compression
+14. Utilities - Crypto, validation, serialization
+15. Registry - Agent tracking
+16. Auto Tool Discovery - Dynamic tool loading
 
 ---
 
@@ -860,13 +911,21 @@ agentic-swarm/
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | For OpenAI provider | OpenAI API key |
+| `OPENAI_MODEL` | For OpenAI provider | Model name (e.g. `gpt-4o`, `gpt-4o-mini`) |
 | `ANTHROPIC_API_KEY` | For Anthropic provider | Anthropic API key |
-| `GEMINI_API_KEY` | For Gemini provider | Google AI API key |
+| `ANTHROPIC_MODEL` | For Anthropic provider | Model name (e.g. `claude-sonnet-4-20250514`, `claude-3-haiku-20240307`) |
+| `GOOGLE_API_KEY` | For Gemini provider | Google AI API key |
+| `GEMINI_MODEL` | For Gemini provider | Model name (e.g. `gemini-1.5-flash`, `gemini-1.5-pro`) |
 | `GROQ_API_KEY` | For Groq provider | Groq API key |
-| `REEVIX_BEDROCK_REGION` | For Bedrock provider | AWS region (e.g. `us-east-1`) |
-| `REEVIX_BEDROCK_ACCESS_KEY_ID` | For Bedrock provider | AWS access key ID |
-| `REEVIX_BEDROCK_SECRET_ACCESS_KEY` | For Bedrock provider | AWS secret access key |
-| `REEVIX_BEDROCK_MODEL_ID` | For Bedrock provider | Bedrock model ID |
+| `GROQ_MODEL` | For Groq provider | Model name (e.g. `llama-3.1-8b-instant`, `llama-3.1-70b-versatile`) |
+| `AWS_ACCESS_KEY_ID` | For Bedrock provider | AWS access key ID |
+| `AWS_SECRET_ACCESS_KEY` | For Bedrock provider | AWS secret access key |
+| `AWS_REGION` | For Bedrock provider | AWS region (e.g. `us-east-1`) |
+| `BEDROCK_MODEL_ID` | For Bedrock provider | Model ID (e.g. `us.anthropic.claude-sonnet-4-6`) |
+| `OLLAMA_BASE_URL` | For Ollama provider | Server URL (default: `http://localhost:11434`) |
+| `OLLAMA_MODEL` | For Ollama provider | Model name (e.g. `llama3.2`, `mistral`, `codellama`) |
+| `VLLM_BASE_URL` | For vLLM provider | Server URL (default: `http://localhost:8000/v1`) |
+| `VLLM_MODEL` | For vLLM provider | Model name (e.g. `meta-llama/Llama-3.1-8B-Instruct`) |
 
 ---
 
