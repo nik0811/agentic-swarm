@@ -1,4 +1,5 @@
 from agentic_swarm import Agent, Tool, Swarm
+from agentic_swarm.core.types import AgentState, MessageType, TaskComplexity, AgentSpec, Message
 
 
 def test_agent_creation():
@@ -14,3 +15,10 @@ def test_agent_default_name():
 def test_tool_creation():
     tool = Tool(name="TestTool")
     assert tool.name == "TestTool"
+
+
+def test_agent_state():
+    spec = AgentSpec(name="TestAgent", role="TestRole", tools=["TestTool"])
+    assert spec.max_iterations == 10
+    assert AgentState.RUNNING.value == "running"
+
