@@ -1,5 +1,6 @@
 """Web-based RAG data source."""
-from typing import AsyncIterator, List
+
+from collections.abc import AsyncIterator
 
 from .base import BaseSource, Document
 
@@ -7,11 +8,11 @@ from .base import BaseSource, Document
 class WebSource(BaseSource):
     """Load documents from web URLs."""
 
-    def __init__(self, urls: List[str], timeout: int = 30):
+    def __init__(self, urls: list[str], timeout: int = 30):
         self._urls = urls
         self._timeout = timeout
 
-    async def load(self) -> List[Document]:
+    async def load(self) -> list[Document]:
         docs = []
         async for doc in self.load_lazy():
             docs.append(doc)
@@ -21,7 +22,7 @@ class WebSource(BaseSource):
         try:
             import httpx
         except ImportError:
-            raise ImportError("httpx package required for WebSource")
+            raise ImportError("httpx package required for WebSource") from None
 
         async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
             for url in self._urls:
@@ -49,6 +50,7 @@ class WebSource(BaseSource):
     def _strip_html(html: str) -> str:
         """Basic HTML tag stripping."""
         import re
+
         text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL)
         text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
         text = re.sub(r"<[^>]+>", " ", text)

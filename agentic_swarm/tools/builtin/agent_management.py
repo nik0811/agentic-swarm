@@ -1,16 +1,15 @@
-from typing import List, Optional
 from ...tool import tool
 
 
 @tool
-async def create_agent(name: str, role: str, tools: List[str] = None) -> dict:
+async def create_agent(name: str, role: str, tools: list[str] = None) -> dict:
     """Create a new sub-agent dynamically.
-    
+
     Args:
         name: Name for the new agent
         role: Role/persona for the agent
         tools: List of tool names to give the agent
-    
+
     Returns:
         Agent info dict with id and name
     """
@@ -20,10 +19,10 @@ async def create_agent(name: str, role: str, tools: List[str] = None) -> dict:
 @tool
 async def terminate_agent(agent_id: str) -> dict:
     """Terminate an agent.
-    
+
     Args:
         agent_id: ID of the agent to terminate
-    
+
     Returns:
         Status of termination
     """
@@ -31,9 +30,9 @@ async def terminate_agent(agent_id: str) -> dict:
 
 
 @tool
-async def list_agents() -> List[dict]:
+async def list_agents() -> list[dict]:
     """List all active agents.
-    
+
     Returns:
         List of agent info dicts
     """
@@ -43,11 +42,11 @@ async def list_agents() -> List[dict]:
 @tool
 async def send_message(target_agent_id: str, message: str) -> dict:
     """Send a message to another agent.
-    
+
     Args:
         target_agent_id: ID of the target agent
         message: Message to send
-    
+
     Returns:
         Status of message delivery
     """
@@ -57,11 +56,11 @@ async def send_message(target_agent_id: str, message: str) -> dict:
 @tool
 async def delegate_task(agent_id: str, task: str) -> dict:
     """Delegate a task to another agent.
-    
+
     Args:
         agent_id: ID of the agent to delegate to
         task: Task description
-    
+
     Returns:
         Task delegation status
     """

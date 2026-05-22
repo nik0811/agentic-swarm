@@ -23,6 +23,7 @@ wheels/
 # Virtual environments
 .venv/
 venv/
+env/
 ENV/
 
 # IDE
@@ -30,17 +31,49 @@ ENV/
 .vscode/
 *.swp
 *.swo
+*.sublime-*
 
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .tox/
+.nox/
 
-# Environment
+# Environment & Secrets (NEVER COMMIT)
 .env
+.env.*
 .env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+secrets.json
+*_credentials.json
+*_secrets.json
+
+# AWS
+.aws/
 
 # OS
 .DS_Store
 Thumbs.db
+*.log
+
+# Data & Storage
+.data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
+.ruff_cache/

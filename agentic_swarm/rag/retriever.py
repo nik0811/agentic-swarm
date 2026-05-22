@@ -1,9 +1,10 @@
-from typing import List, Literal, Optional
-from pydantic import BaseModel
 import math
 from collections import Counter
+from typing import Literal
 
-from ..vectordb.base import BaseVectorDB, VectorSearchResult
+from pydantic import BaseModel
+
+from ..vectordb.base import BaseVectorDB
 from .embedder import Embedder
 
 
@@ -19,13 +20,13 @@ class BM25:
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         self.k1 = k1
         self.b = b
-        self._corpus: List[List[str]] = []
-        self._doc_payloads: List[dict] = []
+        self._corpus: list[list[str]] = []
+        self._doc_payloads: list[dict] = []
         self._df: Counter = Counter()
         self._avg_dl: float = 0.0
         self._n_docs: int = 0
 
-    def index(self, documents: List[dict]) -> None:
+    def index(self, documents: list[dict]) -> None:
         """Index documents for BM25 search."""
         self._corpus = []
         self._doc_payloads = documents
@@ -43,7 +44,7 @@ class BM25:
 
         self._avg_dl = total_len / max(self._n_docs, 1)
 
-    def search(self, query: str, limit: int = 10) -> List[tuple]:
+    def search(self, query: str, limit: int = 10) -> list[tuple]:
         """Search using BM25 scoring. Returns (score, doc_index) pairs."""
         query_tokens = self._tokenize(query)
         scores = []
@@ -56,7 +57,7 @@ class BM25:
         scores.sort(key=lambda x: x[0], reverse=True)
         return scores[:limit]
 
-    def _score_document(self, query_tokens: List[str], doc_tokens: List[str]) -> float:
+    def _score_document(self, query_tokens: list[str], doc_tokens: list[str]) -> float:
         dl = len(doc_tokens)
         tf_counter = Counter(doc_tokens)
         score = 0.0
@@ -68,16 +69,19 @@ class BM25:
             tf = tf_counter[term]
             df = self._df.get(term, 0)
             idf = math.log((self._n_docs - df + 0.5) / (df + 0.5) + 1.0)
-            tf_norm = (tf * (self.k1 + 1)) / (tf + self.k1 * (1 - self.b + self.b * dl / self._avg_dl))
+            tf_norm = (tf * (self.k1 + 1)) / (
+                tf + self.k1 * (1 - self.b + self.b * dl / self._avg_dl)
+            )
             score += idf * tf_norm
 
         return score
 
     @staticmethod
-    def _tokenize(text: str) -> List[str]:
+    def _tokenize(text: str) -> list[str]:
         """Simple whitespace + lowercase tokenization."""
         import re
-        return re.findall(r'\w+', text.lower())
+
+        return re.findall(r"\w+", text.lower())
 
 
 class Retriever:
@@ -93,7 +97,7 @@ class Retriever:
         self.embedder = embedder
         self.strategy = strategy
         self._bm25 = BM25()
-        self._indexed_collection: Optional[str] = None
+        self._indexed_collection: str | None = None
 
     async def retrieve(
         self,
@@ -101,7 +105,7 @@ class Retriever:
         collection: str,
         limit: int = 5,
         filters: dict = None,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Retrieve relevant chunks using configured strategy."""
         if self.strategy == "dense":
             return await self._retrieve_dense(query, collection, limit, filters)
@@ -118,7 +122,7 @@ class Retriever:
         collection: str,
         limit: int,
         filters: dict = None,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Dense retrieval using vector similarity."""
         query_vector = await self.embedder.embed_query(query)
 
@@ -144,7 +148,7 @@ class Retriever:
         collection: str,
         limit: int,
         filters: dict = None,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """BM25-based sparse retrieval."""
         await self._ensure_bm25_index(collection, filters)
 
@@ -154,11 +158,13 @@ class Retriever:
         max_score = bm25_results[0][0] if bm25_results else 1.0
         for score, idx in bm25_results:
             doc = self._bm25._doc_payloads[idx]
-            results.append(RetrievalResult(
-                content=doc.get("content", ""),
-                score=score / max_score,
-                metadata=doc,
-            ))
+            results.append(
+                RetrievalResult(
+                    content=doc.get("content", ""),
+                    score=score / max_score,
+                    metadata=doc,
+                )
+            )
 
         return results
 
@@ -170,7 +176,7 @@ class Retriever:
         filters: dict = None,
         dense_weight: float = 0.6,
         sparse_weight: float = 0.4,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Hybrid retrieval using Reciprocal Rank Fusion (RRF) of dense + sparse."""
         dense_limit = limit * 3
         sparse_limit = limit * 3
@@ -188,10 +194,10 @@ class Retriever:
 
     def _reciprocal_rank_fusion(
         self,
-        result_lists: List[List[RetrievalResult]],
-        weights: List[float] = None,
+        result_lists: list[list[RetrievalResult]],
+        weights: list[float] = None,
         k: int = 60,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Combine multiple ranked lists using RRF."""
         if weights is None:
             weights = [1.0] * len(result_lists)
@@ -216,11 +222,13 @@ class Retriever:
         fused_results = []
         for key in sorted_keys:
             original = content_map[key]
-            fused_results.append(RetrievalResult(
-                content=original.content,
-                score=scores[key],
-                metadata=original.metadata,
-            ))
+            fused_results.append(
+                RetrievalResult(
+                    content=original.content,
+                    score=scores[key],
+                    metadata=original.metadata,
+                )
+            )
 
         return fused_results
 
@@ -231,7 +239,7 @@ class Retriever:
         limit: int = 5,
         initial_limit: int = 20,
         filters: dict = None,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Retrieve and rerank using hybrid scoring."""
         initial_results = await self.retrieve(query, collection, initial_limit, filters)
 
@@ -265,7 +273,7 @@ class Retriever:
         all_docs = await self.vectordb.get(collection, limit=10000, filters=filters)
         documents = []
         for doc in all_docs:
-            payload = doc.payload if hasattr(doc, 'payload') else doc
+            payload = doc.payload if hasattr(doc, "payload") else doc
             documents.append(payload)
 
         self._bm25.index(documents)

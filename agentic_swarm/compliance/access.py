@@ -1,6 +1,7 @@
 """Fine-grained access control for agent operations."""
-from typing import Dict, List, Set, Optional
+
 from enum import Enum
+
 from pydantic import BaseModel
 
 
@@ -15,12 +16,13 @@ class Permission(str, Enum):
 
 class AccessPolicy(BaseModel):
     """Defines what an agent is allowed to do."""
+
     agent_id: str
-    permissions: Set[Permission] = set()
-    allowed_tools: List[str] = []
-    denied_tools: List[str] = []
+    permissions: set[Permission] = set()
+    allowed_tools: list[str] = []
+    denied_tools: list[str] = []
     max_spawn_depth: int = 3
-    allowed_models: List[str] = []
+    allowed_models: list[str] = []
     rate_limit_per_minute: int = 60
 
 
@@ -28,16 +30,18 @@ class AccessController:
     """Manages access policies for agents."""
 
     def __init__(self):
-        self._policies: Dict[str, AccessPolicy] = {}
-        self._default_permissions: Set[Permission] = {
-            Permission.READ, Permission.WRITE, Permission.EXECUTE
+        self._policies: dict[str, AccessPolicy] = {}
+        self._default_permissions: set[Permission] = {
+            Permission.READ,
+            Permission.WRITE,
+            Permission.EXECUTE,
         }
 
     def set_policy(self, agent_id: str, policy: AccessPolicy) -> None:
         """Set access policy for an agent."""
         self._policies[agent_id] = policy
 
-    def get_policy(self, agent_id: str) -> Optional[AccessPolicy]:
+    def get_policy(self, agent_id: str) -> AccessPolicy | None:
         """Get access policy for an agent."""
         return self._policies.get(agent_id)
 

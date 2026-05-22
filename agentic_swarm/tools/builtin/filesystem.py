@@ -1,30 +1,30 @@
-from typing import List
-from ...tool import tool
 import os
+
+from ...tool import tool
 
 
 @tool
 async def read_file(path: str) -> str:
     """Read contents of a file.
-    
+
     Args:
         path: Path to the file
-    
+
     Returns:
         File contents
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()
 
 
 @tool
 async def write_file(path: str, content: str) -> dict:
     """Write content to a file.
-    
+
     Args:
         path: Path to the file
         content: Content to write
-    
+
     Returns:
         Status of write operation
     """
@@ -34,12 +34,12 @@ async def write_file(path: str, content: str) -> dict:
 
 
 @tool
-async def list_directory(path: str) -> List[str]:
+async def list_directory(path: str) -> list[str]:
     """List contents of a directory.
-    
+
     Args:
         path: Path to the directory
-    
+
     Returns:
         List of file and directory names
     """
@@ -49,10 +49,10 @@ async def list_directory(path: str) -> List[str]:
 @tool
 async def file_exists(path: str) -> bool:
     """Check if a file exists.
-    
+
     Args:
         path: Path to check
-    
+
     Returns:
         True if file exists
     """

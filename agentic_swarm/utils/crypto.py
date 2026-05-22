@@ -1,6 +1,6 @@
 import hashlib
-import uuid
 import secrets
+import uuid
 
 
 def hash_string(data: str, algorithm: str = "sha256") -> str:

@@ -1,9 +1,7 @@
 import os
-import json
-from typing import List, AsyncIterator
+from collections.abc import AsyncIterator
 
 from ..base import BaseLLMProvider, LLMMessage, LLMResponse
-
 
 MODEL_INFO = {
     "llama-3.3-70b-versatile": {"context": 128000, "input_cost": 0.00059, "output_cost": 0.00079},
@@ -27,18 +25,19 @@ class GroqProvider(BaseLLMProvider):
         if self._client is None:
             try:
                 from groq import AsyncGroq
+
                 self._client = AsyncGroq(api_key=self.api_key or os.getenv("GROQ_API_KEY"))
             except ImportError:
-                raise ImportError("groq package not installed. Run: pip install groq")
+                raise ImportError("groq package not installed. Run: pip install groq") from None
         return self._client
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
+        messages: list[LLMMessage],
+        tools: list[dict] = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        **kwargs
+        **kwargs,
     ) -> LLMResponse:
         client = self._get_client()
 
@@ -88,10 +87,7 @@ class GroqProvider(BaseLLMProvider):
         )
 
     async def stream(
-        self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
-        **kwargs
+        self, messages: list[LLMMessage], tools: list[dict] = None, **kwargs
     ) -> AsyncIterator[str]:
         client = self._get_client()
 

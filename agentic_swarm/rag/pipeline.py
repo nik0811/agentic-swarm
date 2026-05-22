@@ -1,27 +1,27 @@
-from typing import List, Optional
-from pydantic import BaseModel
-import uuid
 import os
+import uuid
+
+from pydantic import BaseModel
 
 from ..vectordb.base import BaseVectorDB
+from .chunker import Chunker
 from .embedder import Embedder
-from .chunker import Chunker, Chunk
-from .retriever import Retriever, RetrievalResult
+from .query_engine import QueryEngine
 from .reranker import Reranker
-from .query_engine import QueryEngine, QueryResult
+from .retriever import RetrievalResult, Retriever
 from .sources.base import BaseSource
 
 
 class RAGResult(BaseModel):
     context: str
-    sources: List[dict] = []
+    sources: list[dict] = []
     num_chunks: int = 0
-    chunks: List[dict] = []
+    chunks: list[dict] = []
 
 
 class RAGPipeline:
     """End-to-end RAG pipeline for document ingestion and retrieval.
-    
+
     Supports:
     - Multi-source ingestion (files, web, GitHub, API)
     - Multiple chunking strategies (fixed, recursive, semantic, code-aware)
@@ -47,7 +47,9 @@ class RAGPipeline:
         self.vectordb = vectordb
         self.embedder = embedder or Embedder()
         self.chunker = chunker or Chunker()
-        self.retriever = retriever or Retriever(vectordb, self.embedder, strategy=retrieval_strategy)
+        self.retriever = retriever or Retriever(
+            vectordb, self.embedder, strategy=retrieval_strategy
+        )
         self.reranker = reranker
         self.llm_provider = llm_provider
         self.default_collection = default_collection
@@ -101,14 +103,16 @@ class RAGPipeline:
         collection: str = None,
     ) -> int:
         """Ingest a file into the vector database."""
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             text = f.read()
 
         file_ext = os.path.splitext(path)[1]
         chunker = self.chunker
 
         if file_ext in (".py", ".js", ".ts", ".go", ".rs", ".java"):
-            chunker = Chunker(strategy="code", chunk_size=self.chunker.chunk_size, overlap=self.chunker.overlap)
+            chunker = Chunker(
+                strategy="code", chunk_size=self.chunker.chunk_size, overlap=self.chunker.overlap
+            )
 
         original_chunker = self.chunker
         self.chunker = chunker
@@ -116,7 +120,11 @@ class RAGPipeline:
             result = await self.ingest(
                 text,
                 collection=collection,
-                metadata={"source": path, "filename": os.path.basename(path), "extension": file_ext},
+                metadata={
+                    "source": path,
+                    "filename": os.path.basename(path),
+                    "extension": file_ext,
+                },
             )
         finally:
             self.chunker = original_chunker
@@ -127,10 +135,20 @@ class RAGPipeline:
         self,
         path: str,
         collection: str = None,
-        extensions: List[str] = None,
+        extensions: list[str] = None,
     ) -> int:
         """Ingest all files in a directory."""
-        extensions = extensions or [".txt", ".md", ".py", ".js", ".ts", ".go", ".rs", ".java", ".html"]
+        extensions = extensions or [
+            ".txt",
+            ".md",
+            ".py",
+            ".js",
+            ".ts",
+            ".go",
+            ".rs",
+            ".java",
+            ".html",
+        ]
         total_chunks = 0
 
         for root, _, files in os.walk(path):
@@ -171,7 +189,7 @@ class RAGPipeline:
         use_query_engine: bool = False,
     ) -> RAGResult:
         """Query the RAG pipeline.
-        
+
         Args:
             question: The query string
             collection: Vector DB collection to search
@@ -191,7 +209,10 @@ class RAGPipeline:
                 context=result.answer,
                 sources=result.sources,
                 num_chunks=len(result.sources),
-                chunks=[{"content": s.get("content_preview", ""), "score": s.get("score", 0)} for s in result.sources],
+                chunks=[
+                    {"content": s.get("content_preview", ""), "score": s.get("score", 0)}
+                    for s in result.sources
+                ],
             )
 
         results = await self.retriever.retrieve_with_rerank(
@@ -204,7 +225,10 @@ class RAGPipeline:
         if self.reranker and len(results) > 0:
             reranked = await self.reranker.rerank(
                 query=question,
-                results=[{"content": r.content, "score": r.score, "metadata": r.metadata} for r in results],
+                results=[
+                    {"content": r.content, "score": r.score, "metadata": r.metadata}
+                    for r in results
+                ],
                 top_k=limit,
             )
             results = [
@@ -223,9 +247,11 @@ class RAGPipeline:
                 "source": result.metadata.get("source", "unknown"),
             }
             sources.append(source_info)
-            chunks.append({"content": result.content, "score": result.score, "metadata": result.metadata})
+            chunks.append(
+                {"content": result.content, "score": result.score, "metadata": result.metadata}
+            )
 
-            source_label = result.metadata.get("source", f"Source {i+1}")
+            source_label = result.metadata.get("source", f"Source {i + 1}")
             context_parts.append(f"[{source_label}]\n{result.content}")
 
         context = "\n\n".join(context_parts)

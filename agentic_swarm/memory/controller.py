@@ -1,21 +1,21 @@
-from typing import List, Optional, Any
 import re
+from typing import Any
 
-from .core_memory import CoreMemory
-from .recall_memory import RecallMemory, RecallEntry
-from .archival_memory import ArchivalMemory, ArchivalEntry
-from ..vectordb.base import BaseVectorDB
 from ..rag.embedder import Embedder
+from ..vectordb.base import BaseVectorDB
+from .archival_memory import ArchivalEntry, ArchivalMemory
+from .core_memory import CoreMemory
+from .recall_memory import RecallEntry, RecallMemory
 
 
 class MemoryController:
     """Unified interface for all memory types with auto-archiving and fact extraction.
-    
+
     Implements the full memory architecture:
     - Core Memory: Immutable identity (always available)
     - Recall Memory: Working context (sliding window, auto-evicts oldest)
     - Archival Memory: Long-term vector-indexed storage (persistent)
-    
+
     Features:
     - Auto-archive: When recall overflows, evicted entries are summarized and stored in archival
     - Fact extraction: Automatically extracts key facts from conversations
@@ -28,7 +28,7 @@ class MemoryController:
         agent_id: str,
         name: str,
         persona: str,
-        capabilities: List[str] = None,
+        capabilities: list[str] = None,
         vectordb: BaseVectorDB = None,
         embedder: Embedder = None,
         recall_max_size: int = 100,
@@ -59,7 +59,7 @@ class MemoryController:
         self._auto_archive = auto_archive and self._archival is not None
         self._auto_extract_facts = auto_extract_facts
         self._archived_hashes: set = set()
-        self._fact_buffer: List[str] = []
+        self._fact_buffer: list[str] = []
 
     @property
     def core(self) -> CoreMemory:
@@ -72,7 +72,7 @@ class MemoryController:
         return self._recall
 
     @property
-    def archival(self) -> Optional[ArchivalMemory]:
+    def archival(self) -> ArchivalMemory | None:
         """Access archival memory (long-term storage)."""
         return self._archival
 
@@ -99,7 +99,7 @@ class MemoryController:
 
         entries = evicted if isinstance(evicted, list) else [evicted]
         for entry in entries:
-            content = str(entry.content) if hasattr(entry, 'content') else str(entry)
+            content = str(entry.content) if hasattr(entry, "content") else str(entry)
             content_hash = hash(content[:200])
             if content_hash not in self._archived_hashes and len(content.strip()) > 20:
                 self._archived_hashes.add(content_hash)
@@ -111,9 +111,9 @@ class MemoryController:
             return
 
         fact_patterns = [
-            r'(?:remember|note|important|key point|takeaway)[:\s]+(.+)',
-            r'(?:the answer is|conclusion|result)[:\s]+(.+)',
-            r'(?:user prefers|user wants|user likes)[:\s]+(.+)',
+            r"(?:remember|note|important|key point|takeaway)[:\s]+(.+)",
+            r"(?:the answer is|conclusion|result)[:\s]+(.+)",
+            r"(?:user prefers|user wants|user likes)[:\s]+(.+)",
         ]
 
         for pattern in fact_patterns:
@@ -153,15 +153,15 @@ class MemoryController:
         similarity = intersection / max(union, 1)
         return similarity >= threshold
 
-    def get_recall_messages(self) -> List[dict]:
+    def get_recall_messages(self) -> list[dict]:
         """Get recall memory as LLM messages."""
         return self._recall.to_messages()
 
-    def search_recall(self, query: str, limit: int = 5) -> List[RecallEntry]:
+    def search_recall(self, query: str, limit: int = 5) -> list[RecallEntry]:
         """Search recall memory."""
         return self._recall.search(query, limit)
 
-    async def store_archival(self, content: str, metadata: dict = None) -> Optional[str]:
+    async def store_archival(self, content: str, metadata: dict = None) -> str | None:
         """Store to archival memory with deduplication."""
         if not self._archival:
             return None
@@ -172,7 +172,7 @@ class MemoryController:
 
         return await self._archival.store(content, metadata)
 
-    async def search_archival(self, query: str, limit: int = 5) -> List[ArchivalEntry]:
+    async def search_archival(self, query: str, limit: int = 5) -> list[ArchivalEntry]:
         """Search archival memory."""
         if self._archival:
             return await self._archival.search(query, limit)
@@ -192,7 +192,7 @@ class MemoryController:
 
     def get_context_for_llm(self, max_tokens: int = None) -> dict:
         """Get formatted context for LLM respecting token budget.
-        
+
         Priority order (per Architecture.md):
         1. Core memory (agent identity) — always included
         2. Current task / recent recall — always included

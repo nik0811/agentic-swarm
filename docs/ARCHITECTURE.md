@@ -4,7 +4,7 @@
 
 1. **Immortal Agents** - Never die, auto-heal on failure, automatic restart with state recovery
 2. **Dynamic Spawning** - Agents spawn sub-agents based on task complexity
-3. **Isolated Execution** - Each agent runs in isolation, no user data leakage (SOC2 compliant)
+3. **Isolated Execution** - Each agent runs in isolation, no user data leakage
 4. **Shared Intelligence** - Agents communicate via secure channels, share context not data
 5. **Tiered Memory** - Core (identity), Recall (working), Archival (long-term)
 
@@ -85,7 +85,7 @@
 │  └─────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │                         SOC2 COMPLIANCE LAYER                           │    │
+│  │                         SECURITY & COMPLIANCE LAYER                        │    │
 │  │                                                                         │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │    │
 │  │  │   AUDIT     │  │  ENCRYPTION │  │   ACCESS    │  │    DATA     │     │    │
@@ -285,7 +285,7 @@ agentic_swarm/
 │       ├── speed_optimized.py   # Minimize latency
 │       └── quality_optimized.py # Maximize quality
 │
-├── compliance/              # SOC2 compliance
+├── compliance/              # Security & compliance
 │   ├── __init__.py
 │   ├── audit.py             # Immutable audit logging
 │   ├── encryption.py        # Data encryption (AES-256)
@@ -354,7 +354,7 @@ tests/                       # Test suite
 | **Core Memory** | Immutable identity (persona, capabilities) |
 | **Recall Memory** | Sliding window working context |
 | **Archival Memory** | Vector-indexed long-term storage |
-| **SOC2 Compliance** | Audit logs, encryption, RBAC, data isolation |
+| **Security Features** | Audit logs, encryption, RBAC, data isolation |
 | **Smart LLM Routing** | Route to optimal model based on task complexity |
 | **Token Management** | Send only required context, compress when needed |
 | **RAG Pipeline** | Chunk, embed, retrieve, rerank for knowledge augmentation |

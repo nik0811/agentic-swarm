@@ -1,9 +1,8 @@
-import os
 import json
-from typing import List, AsyncIterator
+import os
+from collections.abc import AsyncIterator
 
 from ..base import BaseLLMProvider, LLMMessage, LLMResponse
-
 
 MODEL_INFO = {
     "gemini-2.0-flash": {"context": 1048576, "input_cost": 0.00015, "output_cost": 0.0006},
@@ -22,7 +21,7 @@ class GeminiProvider(BaseLLMProvider):
         super().__init__(model, api_key, **kwargs)
         self._model_info = MODEL_INFO.get(model, DEFAULT_MODEL_INFO)
         self._client = None
-    
+
     def _get_model_name(self) -> str:
         """Get the full model name with models/ prefix if needed."""
         if self.model.startswith("models/"):
@@ -33,15 +32,20 @@ class GeminiProvider(BaseLLMProvider):
         if self._client is None:
             try:
                 from google import genai
+
                 api_key = self.api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
                 if not api_key:
-                    raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable required")
+                    raise ValueError(
+                        "GEMINI_API_KEY or GOOGLE_API_KEY environment variable required"
+                    )
                 self._client = genai.Client(api_key=api_key)
             except ImportError:
-                raise ImportError("google-genai package not installed. Run: pip install google-genai")
+                raise ImportError(
+                    "google-genai package not installed. Run: pip install google-genai"
+                ) from None
         return self._client
 
-    def _convert_messages(self, messages: List[LLMMessage]) -> tuple[str, List[dict]]:
+    def _convert_messages(self, messages: list[LLMMessage]) -> tuple[str, list[dict]]:
         """Convert messages to Gemini format, extracting system instruction."""
         system = ""
         converted = []
@@ -64,7 +68,7 @@ class GeminiProvider(BaseLLMProvider):
 
         return system, converted
 
-    def _convert_tools(self, tools: List[dict]) -> List[dict]:
+    def _convert_tools(self, tools: list[dict]) -> list[dict]:
         """Convert OpenAI tool format to Gemini function declarations."""
         if not tools:
             return []
@@ -73,20 +77,22 @@ class GeminiProvider(BaseLLMProvider):
         for tool in tools:
             if tool.get("type") == "function":
                 func = tool["function"]
-                declarations.append({
-                    "name": func["name"],
-                    "description": func.get("description", ""),
-                    "parameters": func.get("parameters", {"type": "object", "properties": {}}),
-                })
+                declarations.append(
+                    {
+                        "name": func["name"],
+                        "description": func.get("description", ""),
+                        "parameters": func.get("parameters", {"type": "object", "properties": {}}),
+                    }
+                )
         return declarations
 
     async def chat(
         self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
+        messages: list[LLMMessage],
+        tools: list[dict] = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        **kwargs
+        **kwargs,
     ) -> LLMResponse:
         client = self._get_client()
         from google.genai import types
@@ -103,9 +109,11 @@ class GeminiProvider(BaseLLMProvider):
 
         if tools:
             declarations = self._convert_tools(tools)
-            config.tools = [types.Tool(function_declarations=[
-                types.FunctionDeclaration(**d) for d in declarations
-            ])]
+            config.tools = [
+                types.Tool(
+                    function_declarations=[types.FunctionDeclaration(**d) for d in declarations]
+                )
+            ]
 
         contents = [
             types.Content(role=m["role"], parts=[types.Part(text=p["text"]) for p in m["parts"]])
@@ -113,6 +121,7 @@ class GeminiProvider(BaseLLMProvider):
         ]
 
         import asyncio
+
         response = await asyncio.to_thread(
             lambda: client.models.generate_content(
                 model=self._get_model_name(),
@@ -130,11 +139,13 @@ class GeminiProvider(BaseLLMProvider):
                     content += part.text
                 elif part.function_call:
                     fc = part.function_call
-                    tool_calls.append({
-                        "id": fc.name,
-                        "name": fc.name,
-                        "arguments": json.dumps(dict(fc.args) if fc.args else {}),
-                    })
+                    tool_calls.append(
+                        {
+                            "id": fc.name,
+                            "name": fc.name,
+                            "arguments": json.dumps(dict(fc.args) if fc.args else {}),
+                        }
+                    )
 
         usage_meta = response.usage_metadata
         usage = {
@@ -157,10 +168,7 @@ class GeminiProvider(BaseLLMProvider):
         )
 
     async def stream(
-        self,
-        messages: List[LLMMessage],
-        tools: List[dict] = None,
-        **kwargs
+        self, messages: list[LLMMessage], tools: list[dict] = None, **kwargs
     ) -> AsyncIterator[str]:
         client = self._get_client()
         from google.genai import types
