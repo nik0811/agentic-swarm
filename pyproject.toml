@@ -6,17 +6,57 @@ build-backend = "hatchling.build"
 [project]
 name = "agentic-swarm"
 version = "0.1.0"
-description = "Plug-and-play SDK for multi-agent AI systems"
+description = "Plug-and-play SDK for building immortal, self-healing multi-agent AI systems with SOC2 compliance built-in"
 requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Nikhil Kumar", email = "nik0811@example.com"}
+]
+keywords = ["ai", "agents", "multi-agent", "llm", "rag", "swarm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "pydantic>=2.0",
     "httpx>=0.25",
-    "tiktoken>=0.5",      # Token counting
-    "qdrant-client>=1.7",  # Vector DB
+    "tiktoken>=0.5",
 ]
 
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.18"]
-all = ["openai>=1.0", "anthropic>=0.18"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.3"]
+bedrock = ["boto3>=1.34"]
+gemini = ["google-genai>=1.0"]
+qdrant = ["qdrant-client>=1.7"]
+crypto = ["cryptography>=41.0"]
+all = [
+    "openai>=1.0",
+    "anthropic>=0.18",
+    "boto3>=1.34",
+    "google-genai>=1.0",
+    "qdrant-client>=1.7",
+    "cryptography>=41.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+    "cryptography>=41.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentic_swarm"]
