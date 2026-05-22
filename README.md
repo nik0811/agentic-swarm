@@ -858,6 +858,7 @@ agentic-swarm/
 | [`storage_example.py`](examples/storage_example.py) | Persistent state with local and Redis storage |
 | [`rag_sources.py`](examples/rag_sources.py) | Ingest from GitHub, web, and files |
 | [`rag_memory_context.py`](examples/rag_memory_context.py) | RAG + Memory + Context management combined |
+| [`vectordb_persistent.py`](examples/vectordb_persistent.py) | Vector database + persistent storage demo |
 
 ### Running the Full Showcase
 
@@ -901,6 +902,63 @@ Features demonstrated:
 12. Storage - Persistent local storage
 13. Token Management - Budget & compression
 14. Utilities - Crypto, validation, serialization
+15. Registry - Agent tracking
+16. Auto Tool Discovery - Dynamic tool loading
+
+### Vector Database + Persistent Storage
+
+The `vectordb_persistent.py` example demonstrates semantic search and data persistence:
+
+```bash
+python examples/vectordb_persistent.py
+```
+
+```python
+from agentic_swarm.vectordb import InMemoryVectorDB
+from agentic_swarm.rag.pipeline import RAGPipeline
+from agentic_swarm.rag.chunker import Chunker
+from agentic_swarm.rag.embedder import MockEmbedder
+from agentic_swarm.memory.archival_memory import ArchivalMemory
+from agentic_swarm.storage.local import LocalStorage
+
+# Initialize vector database
+vectordb = InMemoryVectorDB()
+await vectordb.create_collection("knowledge", vector_size=384)
+
+# Initialize RAG pipeline
+embedder = MockEmbedder(dimensions=384)
+chunker = Chunker(chunk_size=300, overlap=50, strategy="recursive")
+rag = RAGPipeline(vectordb=vectordb, embedder=embedder, chunker=chunker)
+
+# Ingest documents
+await rag.ingest("Your document content here...", metadata={"title": "Doc 1"})
+
+# Semantic search
+results = await rag.query("How does this work?", limit=3)
+for chunk in results.chunks:
+    print(f"Score: {chunk['score']:.2f} - {chunk['content'][:100]}...")
+
+# Archival memory (vector-indexed long-term storage)
+archival = ArchivalMemory(agent_id="my_agent", vectordb=vectordb, embedder=embedder)
+await archival.store("Important fact to remember")
+memories = await archival.search("important", limit=5)
+
+# Persistent storage (survives across sessions)
+storage = LocalStorage(base_dir=".my_app_data")
+await storage.set("user:preferences", {"theme": "dark", "language": "en"})
+data = await storage.get("user:preferences")  # Returns {"theme": "dark", ...}
+
+# Data persists to disk as JSON files
+# Run again to see existing data loaded
+```
+
+Features:
+- **InMemoryVectorDB**: Fast in-memory vector search for development
+- **QdrantClient**: Production-ready vector database (requires `pip install qdrant-client`)
+- **RAG Pipeline**: Chunk → Embed → Store → Retrieve → Rerank
+- **Archival Memory**: Long-term vector-indexed storage for agents
+- **LocalStorage**: JSON file-based persistence for development
+- **RedisStorage**: Distributed persistence for production
 15. Registry - Agent tracking
 16. Auto Tool Discovery - Dynamic tool loading
 
