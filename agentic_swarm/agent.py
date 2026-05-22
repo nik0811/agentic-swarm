@@ -84,8 +84,8 @@ class Agent:
                         tool_call["arguments"]
                     )
                     self._recall_memory.push(
-                        f"Tool {tool_call['name']} returned: {result}",
-                        role="tool"
+                        f"[Tool Result] {tool_call['name']}: {result}",
+                        role="user"
                     )
             
             self._state = AgentState.DONE

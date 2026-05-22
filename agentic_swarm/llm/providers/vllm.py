@@ -47,6 +47,8 @@ class VLLMProvider(BaseLLMProvider):
         msg_dicts = []
         for m in messages:
             d = m.model_dump(exclude_none=True)
+            if d.get("role") == "tool":
+                d["role"] = "user"
             if not d.get("content", "").strip() and d.get("role") != "assistant":
                 continue
             msg_dicts.append(d)

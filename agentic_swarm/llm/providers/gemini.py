@@ -47,7 +47,7 @@ class GeminiProvider(BaseLLMProvider):
                 content = msg.content or ""
                 if not content.strip():
                     continue
-                role = "user" if msg.role == "user" else "model"
+                role = "user" if msg.role in ("user", "tool") else "model"
                 if converted and converted[-1]["role"] == role:
                     converted[-1]["parts"][0]["text"] += "\n" + content
                 else:

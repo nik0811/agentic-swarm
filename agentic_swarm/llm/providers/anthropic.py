@@ -43,7 +43,7 @@ class AnthropicProvider(BaseLLMProvider):
                 content = msg.content or ""
                 if not content.strip():
                     continue
-                role = "user" if msg.role == "user" else "assistant"
+                role = "user" if msg.role in ("user", "tool") else "assistant"
                 if converted and converted[-1]["role"] == role:
                     converted[-1]["content"] += "\n" + content
                 else:

@@ -5,6 +5,7 @@ from .base import BaseLLMProvider, LLMMessage, LLMResponse
 from .classifier import TaskClassifier
 from .token_manager import TokenManager
 from .context_compressor import ContextCompressor
+from .cache import PromptCache, PrefixCache
 
 
 MODEL_ROUTING = {
@@ -40,6 +41,9 @@ class LLMRouter:
         strategy: Literal["cost_optimized", "speed_optimized", "quality_optimized"] = "cost_optimized",
         default_provider: str = "openai",
         model_routing: dict = None,
+        cache_enabled: bool = True,
+        cache_max_size: int = 500,
+        cache_ttl: int = 3600,
     ):
         self.providers = providers or {}
         self.strategy = strategy
@@ -48,6 +52,12 @@ class LLMRouter:
         self.classifier = TaskClassifier()
         self.token_manager = TokenManager()
         self.compressor = ContextCompressor(self.token_manager)
+        self.cache = PromptCache(
+            max_size=cache_max_size,
+            ttl=cache_ttl,
+            enabled=cache_enabled,
+        )
+        self.prefix_cache = PrefixCache()
     
     def set_routing(self, routing: dict) -> None:
         """Override the model routing table.
@@ -159,16 +169,31 @@ class LLMRouter:
             compressed = self.compressor.compress(messages_dict, budget)
             all_messages = [LLMMessage(**m) for m in compressed]
         
+        # Check prompt cache before calling LLM
+        cached_response = self.cache.get(
+            all_messages, system_prompt or "", model, tools
+        )
+        if cached_response:
+            return cached_response
+        
         try:
             response = await provider.chat(all_messages, tools=tools, **kwargs)
             
+            input_tokens = response.usage.get("prompt_tokens", 0)
             self.token_manager.track_usage(
-                response.usage.get("prompt_tokens", 0),
+                input_tokens,
                 response.usage.get("completion_tokens", 0),
                 response.model,
                 provider.cost_per_1k_input,
                 provider.cost_per_1k_output,
             )
+            
+            # Store in cache (only cache non-tool-call responses for safety)
+            if not response.tool_calls:
+                self.cache.put(
+                    all_messages, system_prompt or "", model, response,
+                    tools=tools, input_tokens=input_tokens,
+                )
             
             return response
             
@@ -189,10 +214,21 @@ class LLMRouter:
             raise e
     
     def get_usage_stats(self) -> dict:
-        """Get token usage statistics."""
-        return self.token_manager.get_total_usage()
+        """Get token usage and cache statistics."""
+        stats = self.token_manager.get_total_usage()
+        cache_stats = self.cache.stats
+        stats["cache"] = {
+            "hits": cache_stats.hits,
+            "misses": cache_stats.misses,
+            "hit_rate": f"{cache_stats.hit_rate:.1%}",
+            "entries": cache_stats.entries,
+            "tokens_saved": cache_stats.total_tokens_saved,
+        }
+        return stats
     
     def clear_stats(self) -> None:
-        """Clear usage statistics."""
+        """Clear usage statistics and cache."""
         self.token_manager.clear_history()
         self.classifier.clear_cache()
+        self.cache.clear()
+        self.cache.reset_stats()

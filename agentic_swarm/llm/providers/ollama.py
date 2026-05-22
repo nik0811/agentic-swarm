@@ -44,7 +44,8 @@ class OllamaProvider(BaseLLMProvider):
 
         msg_dicts = []
         for m in messages:
-            d = {"role": m.role, "content": m.content or ""}
+            role = "user" if m.role in ("user", "tool") else m.role
+            d = {"role": role, "content": m.content or ""}
             if not d["content"].strip() and d["role"] != "assistant":
                 continue
             msg_dicts.append(d)
@@ -90,7 +91,8 @@ class OllamaProvider(BaseLLMProvider):
 
         msg_dicts = []
         for m in messages:
-            d = {"role": m.role, "content": m.content or ""}
+            role = "user" if m.role in ("user", "tool") else m.role
+            d = {"role": role, "content": m.content or ""}
             if not d["content"].strip() and d["role"] != "assistant":
                 continue
             msg_dicts.append(d)
