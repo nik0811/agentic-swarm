@@ -1,4 +1,4 @@
-from .agent import Agent
+from .agent import Agent, register_tool, get_tool_registry
 from .swarm import Swarm, SwarmResult
 from .tool import tool
 from .tools.base import Tool, ToolSchema
@@ -18,4 +18,6 @@ __all__ = [
     "get_config",
     "set_config",
     "reset_config",
+    "register_tool",
+    "get_tool_registry",
 ]
