@@ -14,7 +14,7 @@ class Chunker:
     
     def __init__(
         self,
-        strategy: Literal["fixed", "recursive", "semantic"] = "recursive",
+        strategy: Literal["fixed", "recursive", "semantic", "code"] = "recursive",
         chunk_size: int = 512,
         overlap: int = 50,
     ):
@@ -46,6 +46,8 @@ class Chunker:
             return self._chunk_recursive(text, metadata)
         elif self.strategy == "semantic":
             return self._chunk_semantic(text, metadata)
+        elif self.strategy == "code":
+            return self._chunk_code(text, metadata)
         else:
             raise ValueError(f"Unknown strategy: {self.strategy}")
     
@@ -182,3 +184,119 @@ class Chunker:
             text = f.read()
         
         return self.chunk(text, metadata={"source": path})
+
+    def _chunk_code(self, text: str, metadata: dict = None) -> List[Chunk]:
+        """Code-aware chunking that splits by functions, classes, and methods."""
+        import re
+        metadata = metadata or {}
+        chunks = []
+        index = 0
+
+        patterns = [
+            r'^(class\s+\w+[^:]*:.*?)(?=\nclass\s|\n(?![ \t])(?!\s*$)\S|\Z)',
+            r'^((?:async\s+)?def\s+\w+[^:]*:.*?)(?=\n(?:async\s+)?def\s|\nclass\s|\n(?![ \t])(?!\s*$)\S|\Z)',
+        ]
+
+        class_pattern = re.compile(
+            r'^(class\s+\w+[^:]*:.*?)(?=^class\s|\Z)',
+            re.MULTILINE | re.DOTALL,
+        )
+        func_pattern = re.compile(
+            r'^((?:async\s+)?def\s+\w+[^:]*:.*?)(?=^(?:async\s+)?def\s|^class\s|\Z)',
+            re.MULTILINE | re.DOTALL,
+        )
+
+        class_matches = list(class_pattern.finditer(text))
+
+        if class_matches:
+            for match in class_matches:
+                class_text = match.group(1).strip()
+                class_name_match = re.match(r'class\s+(\w+)', class_text)
+                class_name = class_name_match.group(1) if class_name_match else "unknown"
+
+                if self._count_tokens(class_text) <= self.chunk_size:
+                    chunks.append(Chunk(
+                        content=class_text,
+                        index=index,
+                        metadata={**metadata, "type": "class", "name": class_name},
+                        token_count=self._count_tokens(class_text),
+                    ))
+                    index += 1
+                else:
+                    method_pattern = re.compile(
+                        r'^(    (?:async\s+)?def\s+\w+[^:]*:.*?)(?=^    (?:async\s+)?def\s|\Z)',
+                        re.MULTILINE | re.DOTALL,
+                    )
+                    methods = list(method_pattern.finditer(class_text))
+
+                    if methods:
+                        header_end = methods[0].start()
+                        header = class_text[:header_end].strip()
+                        if header:
+                            chunks.append(Chunk(
+                                content=header,
+                                index=index,
+                                metadata={**metadata, "type": "class_header", "name": class_name},
+                                token_count=self._count_tokens(header),
+                            ))
+                            index += 1
+
+                        for m in methods:
+                            method_text = m.group(1).strip()
+                            method_name_match = re.match(r'\s*(?:async\s+)?def\s+(\w+)', method_text)
+                            method_name = method_name_match.group(1) if method_name_match else "unknown"
+
+                            chunks.append(Chunk(
+                                content=method_text,
+                                index=index,
+                                metadata={**metadata, "type": "method", "class": class_name, "name": method_name},
+                                token_count=self._count_tokens(method_text),
+                            ))
+                            index += 1
+                    else:
+                        sub_chunks = self._chunk_recursive(class_text, {**metadata, "type": "class", "name": class_name})
+                        for sc in sub_chunks:
+                            sc.index = index
+                            index += 1
+                        chunks.extend(sub_chunks)
+        else:
+            func_matches = list(func_pattern.finditer(text))
+            if func_matches:
+                preamble_end = func_matches[0].start()
+                preamble = text[:preamble_end].strip()
+                if preamble and self._count_tokens(preamble) > 10:
+                    chunks.append(Chunk(
+                        content=preamble,
+                        index=index,
+                        metadata={**metadata, "type": "module_header"},
+                        token_count=self._count_tokens(preamble),
+                    ))
+                    index += 1
+
+                for match in func_matches:
+                    func_text = match.group(1).strip()
+                    func_name_match = re.match(r'(?:async\s+)?def\s+(\w+)', func_text)
+                    func_name = func_name_match.group(1) if func_name_match else "unknown"
+
+                    if self._count_tokens(func_text) <= self.chunk_size:
+                        chunks.append(Chunk(
+                            content=func_text,
+                            index=index,
+                            metadata={**metadata, "type": "function", "name": func_name},
+                            token_count=self._count_tokens(func_text),
+                        ))
+                        index += 1
+                    else:
+                        sub_chunks = self._chunk_recursive(func_text, {**metadata, "type": "function", "name": func_name})
+                        for sc in sub_chunks:
+                            sc.index = index
+                            index += 1
+                        chunks.extend(sub_chunks)
+            else:
+                return self._chunk_recursive(text, metadata)
+
+        if not chunks:
+            return self._chunk_recursive(text, metadata)
+
+        return chunks
+

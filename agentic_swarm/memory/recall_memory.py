@@ -23,8 +23,8 @@ class RecallMemory:
         self._max_tokens = max_tokens
         self._current_tokens = 0
     
-    def push(self, content: Any, role: str = "user", metadata: dict = None, token_count: int = 0) -> None:
-        """Add entry to recall memory."""
+    def push(self, content: Any, role: str = "user", metadata: dict = None, token_count: int = 0):
+        """Add entry to recall memory. Returns evicted entries if any."""
         entry = RecallEntry(
             content=content,
             role=role,
@@ -33,12 +33,21 @@ class RecallMemory:
             token_count=token_count,
         )
         
+        evicted = []
         while self._current_tokens + token_count > self._max_tokens and self._entries:
-            evicted = self._entries.popleft()
-            self._current_tokens -= evicted.token_count
+            removed = self._entries.popleft()
+            self._current_tokens -= removed.token_count
+            evicted.append(removed)
+        
+        if len(self._entries) == self._entries.maxlen:
+            overflow = self._entries.popleft()
+            self._current_tokens -= overflow.token_count
+            evicted.append(overflow)
         
         self._entries.append(entry)
         self._current_tokens += token_count
+        
+        return evicted if evicted else None
     
     def get_recent(self, n: int = 10) -> List[RecallEntry]:
         """Get n most recent entries."""
