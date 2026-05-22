@@ -351,10 +351,9 @@ class ToolSelector:
                 timeout=self.timeout
             )
         else:
+            # Use asyncio.to_thread for sync functions (Python 3.9+)
             return await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
-                    None, lambda: tool.func(**arguments)
-                ),
+                asyncio.to_thread(tool.func, **arguments),
                 timeout=self.timeout
             )
 

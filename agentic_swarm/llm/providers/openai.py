@@ -94,9 +94,18 @@ class OpenAIProvider(BaseLLMProvider):
     ) -> AsyncIterator[str]:
         client = self._get_client()
         
+        msg_dicts = []
+        for m in messages:
+            d = m.model_dump(exclude_none=True)
+            if d.get("role") == "tool":
+                d["role"] = "user"
+            if not d.get("content", "").strip() and d.get("role") != "assistant":
+                continue
+            msg_dicts.append(d)
+        
         request = {
             "model": self.model,
-            "messages": [m.model_dump(exclude_none=True) for m in messages],
+            "messages": msg_dicts,
             "stream": True,
         }
         

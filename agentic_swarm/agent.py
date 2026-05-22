@@ -8,22 +8,15 @@ from .core.exceptions import ToolNotFoundError
 from .memory.core_memory import CoreMemory
 from .memory.recall_memory import RecallMemory
 from .tools.base import Tool
-from .tools.discovery import ToolRegistry as ToolDiscovery, ToolSelector
+from .tools.discovery import ToolRegistry as ToolDiscovery, ToolSelector, get_global_registry as _get_discovery_registry
 from .llm.base import LLMMessage
 from .llm.router import LLMRouter
 from .lifecycle.spawner import Spawner
 
 
-# Global tool registry for auto-discovery
-_global_tool_registry: Optional[ToolDiscovery] = None
-
-
 def get_tool_registry() -> ToolDiscovery:
-    """Get or create global tool registry."""
-    global _global_tool_registry
-    if _global_tool_registry is None:
-        _global_tool_registry = ToolDiscovery()
-    return _global_tool_registry
+    """Get the global tool registry (from discovery module)."""
+    return _get_discovery_registry()
 
 
 def register_tool(
@@ -99,11 +92,12 @@ class Agent:
             
             if isinstance(auto_tools, str):
                 # Search by task description
-                matches = registry.search(auto_tools, limit=10, category=tool_categories[0] if tool_categories else None)
+                category_filter = tool_categories[0] if tool_categories and len(tool_categories) > 0 else None
+                matches = registry.search(auto_tools, limit=10, category=category_filter)
                 for m in matches:
                     if m.tool.name not in self.tools:
                         self.tools[m.tool.name] = m.tool
-            elif tool_categories:
+            elif tool_categories and len(tool_categories) > 0:
                 # Get tools from specific categories
                 for cat in tool_categories:
                     for t in registry.get_by_category(cat):
@@ -193,7 +187,9 @@ class Agent:
             force_model=self.llm_model,
         )
         
-        self._recall_memory.push(response.content or "", role="assistant")
+        # Only push non-empty assistant responses
+        if response.content:
+            self._recall_memory.push(response.content, role="assistant")
         
         if response.tool_calls:
             tool_call = response.tool_calls[0]
@@ -301,6 +297,9 @@ class Agent:
         
         self._state = AgentState.TERMINATED
         self._recall_memory.clear()
+        
+        # Remove from spawner tracking to prevent memory leak
+        self._spawner.remove_agent(self.id)
     
     def __eq__(self, other):
         if not isinstance(other, Agent):

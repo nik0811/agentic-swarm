@@ -124,12 +124,8 @@ class BedrockProvider(BaseLLMProvider):
         if tools:
             request["toolConfig"] = {"tools": self._convert_tools(tools)}
         
-        import asyncio
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.converse(**request)
-        )
+        # Use asyncio.to_thread for sync boto3 call (Python 3.9+)
+        response = await asyncio.to_thread(client.converse, **request)
         
         content = ""
         tool_calls = []
@@ -180,11 +176,7 @@ class BedrockProvider(BaseLLMProvider):
             request["system"] = [{"text": system}]
         
         import asyncio
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.converse_stream(**request)
-        )
+        response = await asyncio.to_thread(client.converse_stream, **request)
         
         for event in response.get("stream", []):
             if "contentBlockDelta" in event:
