@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 
 from ..core.types import AgentSpec
+from ..core.exceptions import AgentCreationError
 
 
 class Spawner:
@@ -37,7 +38,7 @@ class Spawner:
         from ..agent import Agent
         
         if not self.can_spawn(parent.id):
-            raise RuntimeError(f"Cannot spawn more children for agent {parent.id}")
+            raise AgentCreationError(f"Cannot spawn more children for agent {parent.id}: max_depth={self._max_depth}, max_children={self._max_children}")
         
         child = Agent(
             name=name,

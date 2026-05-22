@@ -36,12 +36,18 @@ Most agent frameworks give you a single agent with basic tool calling. Agentic S
 | **Immortal Agents** | Auto-heal on failure, automatic restart with state recovery |
 | **Dynamic Spawning** | Agents create sub-agents at runtime based on task needs |
 | **Isolated Execution** | Each agent runs in a sandbox — no data leakage |
-| **Tiered Memory** | Core (identity), Recall (working context), Archival (vector-indexed long-term) |
-| **Smart LLM Routing** | Route to optimal model based on task complexity and cost strategy |
-| **Multi-Provider** | OpenAI, Anthropic, Google Gemini, AWS Bedrock (Claude, Llama, Titan, Mistral) |
+| **Tiered Memory** | Core (identity), Recall (working context + auto-archive), Archival (vector-indexed) |
+| **Smart LLM Routing** | Route to optimal model based on task complexity with cost/speed/quality strategies |
+| **Multi-Provider** | OpenAI, Anthropic, Google Gemini, AWS Bedrock, Groq, Ollama, vLLM |
 | **Token Management** | Send only required context, compress when budget is exceeded |
-| **RAG Pipeline** | Chunk → Embed → Retrieve → Rerank for knowledge augmentation |
+| **RAG Pipeline** | Chunk (fixed/recursive/semantic/code) → Embed → Retrieve (dense+BM25+RRF) → Rerank |
+| **RAG Sources** | Ingest from local files, web URLs, GitHub repos, and REST APIs |
+| **Query Engine** | Query expansion, HyDE, hybrid retrieval, cross-encoder reranking |
+| **Communication** | Pub/sub message bus + bidirectional point-to-point channels |
+| **Persistent Storage** | Local file-based (dev) or Redis (production) with TTL support |
 | **SOC2 Compliance** | Immutable audit logs, encryption at rest, RBAC, data isolation |
+| **Access Control** | Fine-grained permission, tool, and model ACLs per agent |
+| **Agent Registry** | Global singleton registry for tracking all active agents/swarms |
 | **Fully Configurable** | Every hardcoded default can be overridden via `SDKConfig` |
 
 ---
@@ -416,7 +422,11 @@ def my_tool(query: str, limit: int = 10) -> str:
 ### LLM Router
 
 ```python
-from agentic_swarm.llm import LLMRouter, OpenAIProvider, AnthropicProvider, BedrockProvider, GeminiProvider
+from agentic_swarm.llm import (
+    LLMRouter, 
+    OpenAIProvider, AnthropicProvider, BedrockProvider, 
+    GeminiProvider, GroqProvider, OllamaProvider, VLLMProvider,
+)
 
 router = LLMRouter(strategy="cost_optimized")
 
@@ -424,6 +434,9 @@ router = LLMRouter(strategy="cost_optimized")
 router.register_provider("openai", OpenAIProvider(model="gpt-4o"))
 router.register_provider("anthropic", AnthropicProvider(model="claude-sonnet-4-20250514"))
 router.register_provider("gemini", GeminiProvider(model="gemini-2.0-flash"))
+router.register_provider("groq", GroqProvider(model="llama-3.3-70b-versatile"))
+router.register_provider("ollama", OllamaProvider(model="llama3.2", base_url="http://localhost:11434"))
+router.register_provider("vllm", VLLMProvider(model="meta-llama/Llama-3-8B", base_url="http://gpu-server:8000"))
 router.register_provider("bedrock", BedrockProvider(
     model="us.anthropic.claude-opus-4-6-v1",
     region="us-east-1",
@@ -548,6 +561,195 @@ isolation.validate_access("agent-1", "agent:agent-1:data")  # True
 isolation.validate_access("agent-1", "agent:agent-2:data")  # False
 ```
 
+### Access Control
+
+```python
+from agentic_swarm.compliance.access import AccessController, Permission, AccessPolicy
+
+controller = AccessController()
+
+# Set fine-grained policy for an agent
+policy = AccessPolicy(
+    agent_id="agent-1",
+    permissions={Permission.READ, Permission.WRITE, Permission.EXECUTE},
+    allowed_tools=["web_search", "read_file"],
+    denied_tools=["run_shell"],
+    allowed_models=["gpt-4o-mini", "gpt-4o"],
+    rate_limit_per_minute=30,
+)
+controller.set_policy("agent-1", policy)
+
+# Check permissions
+controller.check_permission("agent-1", Permission.EXECUTE)   # True
+controller.check_permission("agent-1", Permission.ADMIN)     # False
+controller.check_tool_access("agent-1", "web_search")        # True
+controller.check_tool_access("agent-1", "run_shell")         # False
+controller.check_model_access("agent-1", "gpt-4o")           # True
+```
+
+### Inter-Agent Communication
+
+```python
+from agentic_swarm.communication import MessageBus, Channel, MessageRouter, Message, MessageType
+
+# Message Bus (pub/sub)
+bus = MessageBus()
+bus.subscribe("agent-1", handler_fn)
+bus.subscribe_topic("alerts", alert_handler)
+
+await bus.publish(Message(
+    type=MessageType.TASK_DELEGATE,
+    sender_id="coordinator",
+    receiver_id="agent-1",
+    content="Research quantum computing",
+))
+
+await bus.broadcast("coordinator", "System update", topic="alerts")
+
+# Direct Channels (point-to-point)
+router = MessageRouter()
+channel = router.create_channel("agent-a", "agent-b")
+await channel.send("agent-a", "Here's the data you requested")
+msg = await channel.receive("agent-b", timeout=5.0)
+```
+
+### Storage (Persistence)
+
+```python
+from agentic_swarm.storage import LocalStorage, RedisStorage
+
+# Local file-based storage (dev/single-node)
+storage = LocalStorage(base_dir=".data/storage")
+await storage.set("agent:state:123", {"status": "running", "task": "research"})
+state = await storage.get("agent:state:123")
+await storage.set("session:token", "abc123", ttl=3600)  # Expires in 1 hour
+keys = await storage.list_keys(prefix="agent:")
+
+# Redis storage (distributed/production)
+redis_store = RedisStorage(url="redis://localhost:6379", prefix="swarm:")
+await redis_store.set("agent:state:123", {"status": "running"})
+batch = await redis_store.get_many(["key1", "key2", "key3"])
+```
+
+### RAG Sources
+
+```python
+from agentic_swarm.rag.sources import FileSource, WebSource, GitHubSource, APISource
+
+# Ingest from local files
+source = FileSource("./docs/", extensions=[".md", ".txt"], recursive=True)
+docs = await source.load()
+
+# Ingest from web URLs
+web = WebSource(urls=["https://docs.example.com/guide", "https://docs.example.com/api"])
+docs = await web.load()
+
+# Ingest from GitHub repo
+github = GitHubSource(repo="owner/repo", branch="main", path="docs/", token="ghp_...")
+docs = await github.load()
+
+# Ingest from REST API
+api = APISource(endpoints=[
+    {"url": "https://api.example.com/articles", "content_field": "body", "source_field": "title"},
+])
+docs = await api.load()
+
+# Use with RAG pipeline
+from agentic_swarm.rag import RAGPipeline
+pipeline = RAGPipeline(vectordb=vectordb)
+await pipeline.ingest_source(github, collection="knowledge")
+```
+
+### RAG Query Engine (Advanced)
+
+```python
+from agentic_swarm.rag import RAGPipeline, Retriever, Reranker, QueryEngine, Chunker
+
+# Full pipeline with all features
+pipeline = RAGPipeline(
+    vectordb=vectordb,
+    chunker=Chunker(strategy="code", chunk_size=512),  # Code-aware chunking
+    reranker=Reranker(strategy="cross_encoder"),
+    llm_provider=openai_provider,
+    retrieval_strategy="hybrid",           # Dense + BM25 with RRF fusion
+    enable_query_expansion=True,           # Generate related queries
+    enable_hyde=True,                      # Hypothetical Document Embedding
+)
+
+# Ingest code files (auto-detects code-aware chunking for .py/.js/.ts)
+await pipeline.ingest_file("./src/auth.py")
+await pipeline.ingest_directory("./src/", extensions=[".py", ".ts"])
+
+# Query with full engine (expansion + HyDE + rerank + LLM answer)
+result = await pipeline.query("How does authentication work?", use_query_engine=True)
+print(result.context)    # LLM-generated answer grounded in code
+print(result.sources)    # Source attribution
+```
+
+### Routing Strategies
+
+```python
+from agentic_swarm.llm import LLMRouter
+from agentic_swarm.llm.strategies import CostOptimizedStrategy, SpeedOptimizedStrategy, QualityOptimizedStrategy
+
+# Strategy objects can rank models
+cost_strategy = CostOptimizedStrategy()
+ranked = cost_strategy.rank_models(
+    ["gpt-4o", "gpt-4o-mini", "claude-3-opus-20240229"],
+    model_info={"gpt-4o": {"input_cost": 0.005}, "gpt-4o-mini": {"input_cost": 0.00015}, ...}
+)
+# → ["gpt-4o-mini", "gpt-4o", "claude-3-opus-20240229"]  (cheapest first)
+
+# Strategies auto-select best model for complexity
+quality = QualityOptimizedStrategy()
+model = quality.select(providers_dict, complexity="expert")  # Returns best model
+```
+
+### Agent Registry
+
+```python
+from agentic_swarm.core.registry import AgentRegistry
+
+registry = AgentRegistry()
+
+# Register agents and swarms
+registry.register("agent-1", agent_instance)
+registry.register("swarm-1", swarm_instance)
+
+# Query
+agent = registry.get("agent-1")
+all_agents = registry.list_agents()
+count = registry.count()
+
+# Cleanup
+registry.unregister("agent-1")
+registry.clear()
+```
+
+### Utilities
+
+```python
+from agentic_swarm.utils import (
+    hash_string, generate_id, generate_token,
+    serialize, deserialize,
+    validate_agent_name, validate_temperature, validate_max_tokens,
+)
+
+# Cryptographic utilities
+id = generate_id()                     # UUID-like unique ID
+token = generate_token(32)             # Secure random hex token
+digest = hash_string("data", "sha256") # SHA-256 hash
+
+# Serialization (handles datetime, nested objects)
+json_str = serialize({"created": datetime.now(), "data": [1, 2, 3]})
+obj = deserialize(json_str)
+
+# Input validation (raises ValueError on invalid)
+validate_agent_name("my-agent")       # OK
+validate_temperature(0.7)              # OK (0.0 - 2.0)
+validate_max_tokens(4096)              # OK (1 - 1_000_000)
+```
+
 ---
 
 ## Project Structure
@@ -557,51 +759,81 @@ agentic-swarm/
 ├── agentic_swarm/
 │   ├── __init__.py               # Public API exports
 │   ├── agent.py                  # Base Agent with ReAct loop
-│   ├── swarm.py                  # Multi-agent orchestrator
+│   ├── swarm.py                  # Multi-agent orchestrator + message bus
 │   ├── tool.py                   # @tool decorator
 │   ├── core/
 │   │   ├── config.py             # SDKConfig (all configurable values)
 │   │   ├── types.py              # Enums, models (AgentState, TaskComplexity)
-│   │   └── exceptions.py         # Custom exception hierarchy
+│   │   ├── exceptions.py         # Custom exception hierarchy
+│   │   └── registry.py           # Global agent registry (singleton)
 │   ├── memory/
 │   │   ├── core_memory.py        # Immutable agent identity
-│   │   ├── recall_memory.py      # Sliding window working memory
+│   │   ├── recall_memory.py      # Sliding window (auto-evicts, returns evicted)
 │   │   ├── archival_memory.py    # Vector-indexed long-term memory
-│   │   └── controller.py         # Unified memory interface
+│   │   └── controller.py         # Unified interface + auto-archive + fact extraction
+│   ├── communication/
+│   │   ├── protocols.py          # Message types, priorities, protocols
+│   │   ├── bus.py                # Pub/sub message bus
+│   │   ├── channel.py            # Bidirectional point-to-point channels
+│   │   └── router.py             # Message routing (channel + bus)
 │   ├── llm/
-│   │   ├── router.py             # Smart model routing
+│   │   ├── router.py             # Smart model routing with fallback
 │   │   ├── classifier.py         # Task complexity classification
 │   │   ├── token_manager.py      # Token counting and budgeting
-│   │   ├── context_compressor.py # Context compression
+│   │   ├── context_compressor.py # Context compression strategies
 │   │   ├── base.py               # Provider interface
-│   │   └── providers/
-│   │       ├── openai.py         # OpenAI provider
-│   │       ├── anthropic.py      # Anthropic provider
-│   │       ├── bedrock.py        # AWS Bedrock provider
-│   │       └── gemini.py         # Google Gemini provider
+│   │   ├── providers/
+│   │   │   ├── openai.py         # OpenAI (GPT-4o, GPT-4o-mini, o1)
+│   │   │   ├── anthropic.py      # Anthropic (Claude 3.5, Claude 3)
+│   │   │   ├── bedrock.py        # AWS Bedrock (Claude, Llama, Titan)
+│   │   │   ├── gemini.py         # Google Gemini (2.0 Flash, 1.5 Pro)
+│   │   │   ├── groq.py           # Groq (Llama, Mixtral - fast inference)
+│   │   │   ├── ollama.py         # Ollama (local models)
+│   │   │   └── vllm.py           # vLLM (self-hosted)
+│   │   └── strategies/
+│   │       ├── cost_optimized.py  # Minimize cost
+│   │       ├── speed_optimized.py # Minimize latency
+│   │       └── quality_optimized.py # Maximize quality
 │   ├── rag/
-│   │   ├── pipeline.py           # End-to-end RAG pipeline
-│   │   ├── chunker.py            # Document chunking strategies
-│   │   ├── embedder.py           # Text embedding
-│   │   └── retriever.py          # Retrieval with reranking
+│   │   ├── pipeline.py           # End-to-end RAG (ingest + query)
+│   │   ├── chunker.py            # Fixed, recursive, semantic, code-aware
+│   │   ├── embedder.py           # OpenAI embeddings + MockEmbedder
+│   │   ├── retriever.py          # Dense, sparse (BM25), hybrid (RRF)
+│   │   ├── reranker.py           # Cross-encoder, keyword, LLM reranking
+│   │   ├── query_engine.py       # Query expansion, HyDE, context assembly
+│   │   └── sources/
+│   │       ├── file.py           # Local files and directories
+│   │       ├── web.py            # Web URL scraping
+│   │       ├── github.py         # GitHub repository files
+│   │       └── api.py            # REST API endpoints
 │   ├── vectordb/
 │   │   ├── base.py               # Vector DB interface
 │   │   └── qdrant.py             # Qdrant + InMemory implementations
 │   ├── lifecycle/
-│   │   ├── supervisor.py         # Health monitoring
-│   │   ├── healer.py             # Auto-recovery
-│   │   ├── spawner.py            # Dynamic sub-agent creation
-│   │   └── sandbox.py            # Isolated execution
+│   │   ├── supervisor.py         # Health monitoring + auto-restart
+│   │   ├── healer.py             # State snapshot + auto-recovery
+│   │   ├── spawner.py            # Dynamic sub-agent creation (depth/children limits)
+│   │   └── sandbox.py            # Isolated execution (CPU/mem/timeout)
 │   ├── compliance/
-│   │   ├── audit.py              # Immutable audit logging
-│   │   ├── encryption.py         # Encryption at rest
-│   │   └── isolation.py          # Data isolation + RBAC
+│   │   ├── audit.py              # Immutable audit logging (checksum chain)
+│   │   ├── encryption.py         # AES-256 encryption + key rotation
+│   │   ├── isolation.py          # Data isolation + RBAC
+│   │   └── access.py             # Fine-grained permission/tool/model ACLs
+│   ├── storage/
+│   │   ├── base.py               # Storage interface
+│   │   ├── local.py              # File-based JSON storage with TTL
+│   │   └── redis.py              # Redis backend (distributed)
+│   ├── utils/
+│   │   ├── crypto.py             # Hashing, ID generation, tokens
+│   │   ├── serialization.py      # JSON serialization with datetime support
+│   │   └── validation.py         # Input validation helpers
 │   └── tools/
 │       └── builtin/              # Built-in tools (shell, web, memory, etc.)
-├── tests/                        # Full test suite
+├── tests/                        # Full test suite (100+ tests)
 ├── examples/                     # Working examples
-├── pyproject.toml                # Package configuration
+├── ARCHITECTURE.md               # System architecture documentation
 ├── CHANGELOG.md                  # Version history
+├── pyproject.toml                # Package configuration
 └── README.md                     # This file
 ```
 
@@ -617,6 +849,9 @@ agentic-swarm/
 | [`memory_usage.py`](examples/memory_usage.py) | All three memory tiers in action |
 | [`rag_pipeline.py`](examples/rag_pipeline.py) | Document ingestion and retrieval |
 | [`immortal_swarm_bedrock.py`](examples/immortal_swarm_bedrock.py) | Full immortal swarm with AWS Bedrock, auto-healing, and agent communication |
+| [`communication.py`](examples/communication.py) | Message bus and channels between agents |
+| [`storage_example.py`](examples/storage_example.py) | Persistent state with local and Redis storage |
+| [`rag_sources.py`](examples/rag_sources.py) | Ingest from GitHub, web, and files |
 
 ---
 
@@ -627,6 +862,7 @@ agentic-swarm/
 | `OPENAI_API_KEY` | For OpenAI provider | OpenAI API key |
 | `ANTHROPIC_API_KEY` | For Anthropic provider | Anthropic API key |
 | `GEMINI_API_KEY` | For Gemini provider | Google AI API key |
+| `GROQ_API_KEY` | For Groq provider | Groq API key |
 | `REEVIX_BEDROCK_REGION` | For Bedrock provider | AWS region (e.g. `us-east-1`) |
 | `REEVIX_BEDROCK_ACCESS_KEY_ID` | For Bedrock provider | AWS access key ID |
 | `REEVIX_BEDROCK_SECRET_ACCESS_KEY` | For Bedrock provider | AWS secret access key |
@@ -660,17 +896,24 @@ pytest tests/ --cov=agentic_swarm --cov-report=html
 - `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `o1`, `o1-mini`
 
 ### Anthropic
-- `claude-sonnet-4-20250514`, `claude-sonnet-4-20250514`, `claude-haiku-35-20241022`
+- `claude-sonnet-4-20250514`, `claude-3-5-sonnet-latest`, `claude-3-opus-20240229`, `claude-3-haiku-20240307`
 
 ### Google Gemini
 - `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-1.5-pro`, `gemini-1.5-flash`
 
 ### AWS Bedrock
-- `us.anthropic.claude-opus-4-6-v1` (Claude Opus)
-- `us.anthropic.claude-sonnet-4-20250514-v2:0` (Claude Sonnet)
-- `us.meta.llama3-2-90b-instruct-v1:0` (Llama 3.2)
-- `amazon.titan-text-premier-v1:0` (Titan)
-- `mistral.mistral-large-2402-v1:0` (Mistral Large)
+- `us.anthropic.claude-opus-4-6-v1`, `us.anthropic.claude-sonnet-4-20250514-v2:0`
+- `us.meta.llama3-2-90b-instruct-v1:0`, `amazon.titan-text-premier-v1:0`
+- `mistral.mistral-large-2402-v1:0`
+
+### Groq (Fast Inference)
+- `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`, `gemma2-9b-it`
+
+### Ollama (Local)
+- `llama3.2`, `mistral`, `codellama`, `phi3` (any model available locally)
+
+### vLLM (Self-hosted)
+- Any model served via vLLM's OpenAI-compatible API
 
 ---
 
@@ -730,9 +973,16 @@ pip install -e ".[dev,all]"
 ## Roadmap
 
 - [x] Google Gemini provider
+- [x] Groq, Ollama, vLLM providers
+- [x] Inter-agent communication (message bus + channels)
+- [x] Persistent storage (local + Redis)
+- [x] Access control and fine-grained permissions
+- [x] RAG sources (file, web, GitHub, API)
+- [x] BM25 sparse retrieval + RRF fusion
+- [x] Query expansion and HyDE
+- [x] Code-aware chunking
 - [ ] Agent-to-agent streaming
 - [ ] Web UI dashboard for swarm monitoring
-- [ ] Persistent agent state (Redis/PostgreSQL)
 - [ ] Distributed multi-node swarms
 - [ ] Plugin system for custom providers and tools
 - [ ] OpenTelemetry tracing integration

@@ -1,7 +1,7 @@
 """Message protocols for agent communication."""
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 import uuid
 
@@ -14,6 +14,11 @@ class MessageType(str, Enum):
     BROADCAST = "broadcast"
     DIRECT = "direct"
     HANDOFF = "handoff"
+    TASK_DELEGATE = "task_delegate"
+    TASK_RESULT = "task_result"
+    CONTEXT_SHARE = "context_share"
+    HEALTH_PING = "health_ping"
+    SPAWN_REQUEST = "spawn_request"
 
 
 class Priority(int, Enum):
@@ -32,7 +37,7 @@ class Message(BaseModel):
     content: Any = None
     metadata: Dict[str, Any] = {}
     priority: Priority = Priority.NORMAL
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     reply_to: Optional[str] = None
     ttl: Optional[int] = None
 

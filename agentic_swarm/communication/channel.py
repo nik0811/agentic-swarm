@@ -4,6 +4,7 @@ from typing import Any, Optional
 from collections import deque
 
 from .protocols import Message, MessageType
+from ..core.exceptions import ChannelClosedError
 
 
 class Channel:
@@ -24,7 +25,7 @@ class Channel:
     async def send(self, sender_id: str, content: Any, msg_type: MessageType = MessageType.DIRECT) -> None:
         """Send a message through the channel."""
         if self._closed:
-            raise RuntimeError("Channel is closed")
+            raise ChannelClosedError("Channel is closed")
 
         message = Message(
             type=msg_type,

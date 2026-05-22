@@ -1,5 +1,6 @@
 from typing import List, Literal, Optional
 from ..core.types import TaskComplexity
+from ..core.exceptions import LLMProviderError
 from .base import BaseLLMProvider, LLMMessage, LLMResponse
 from .classifier import TaskClassifier
 from .token_manager import TokenManager
@@ -137,7 +138,7 @@ class LLMRouter:
         provider = self._get_provider_for_model(model)
         
         if not provider:
-            raise ValueError(f"No provider available for model: {model}")
+            raise LLMProviderError(f"No provider available for model: {model}")
         
         all_messages = []
         if system_prompt:

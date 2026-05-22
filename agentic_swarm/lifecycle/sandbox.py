@@ -2,6 +2,8 @@ from typing import Any, Callable, Optional
 import asyncio
 import resource
 
+from ..core.exceptions import SandboxTimeoutError
+
 
 class SandboxConfig:
     def __init__(
@@ -40,7 +42,7 @@ class Sandbox:
             )
             return result
         except asyncio.TimeoutError:
-            raise TimeoutError(f"Execution exceeded {self.config.timeout_seconds}s timeout")
+            raise SandboxTimeoutError(f"Execution exceeded {self.config.timeout_seconds}s timeout")
         finally:
             self._active = False
     

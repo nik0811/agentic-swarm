@@ -18,6 +18,7 @@ class MessageType(str, Enum):
     TASK_RESULT = "task_result"
     CONTEXT_SHARE = "context_share"
     HEALTH_PING = "health_ping"
+    SPAWN_REQUEST = "spawn_request"
 
 class TaskComplexity(str, Enum):
     TRIVIAL = "trivial"
