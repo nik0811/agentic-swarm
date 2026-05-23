@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentic-swarm"
-version = "0.1.1"
+version = "0.2.0"
 description = "Plug-and-play SDK for building immortal, self-healing multi-agent AI systems"
 requires-python = ">=3.10"
 readme = "README.md"
