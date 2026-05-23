@@ -50,9 +50,9 @@ Agentic Swarm is a production-grade SDK for building multi-agent AI systems wher
 ## Highlights
 
 <p align="center">
-  <img src="https://img.shields.io/badge/364-Tests%20Passing-success?style=for-the-badge" alt="Tests Passing">
+  <img src="https://img.shields.io/badge/423-Tests%20Passing-success?style=for-the-badge" alt="Tests Passing">
   <img src="https://img.shields.io/badge/7-LLM%20Providers-blue?style=for-the-badge" alt="LLM Providers">
-  <img src="https://img.shields.io/badge/26-Examples-orange?style=for-the-badge" alt="Examples">
+  <img src="https://img.shields.io/badge/27-Examples-orange?style=for-the-badge" alt="Examples">
   <img src="https://img.shields.io/badge/0-External%20DBs-purple?style=for-the-badge" alt="External DBs">
 </p>
 
