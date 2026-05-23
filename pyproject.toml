@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "Nikhil Kumar", email = "nik0811@example.com"}
+    {name = "Nikhil Kumar", email = "nikhil811raj@gmail.com"}
 ]
 keywords = ["ai", "agents", "multi-agent", "llm", "rag", "swarm", "autonomous"]
 classifiers = [
