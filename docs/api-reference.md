@@ -153,6 +153,10 @@ controller = MemoryController(
     persona="Helpful AI",
     vectordb=vectordb,
     embedder=embedder,
+    # Cognitive memory options
+    enable_graph_memory=True,      # Entity-relationship storage
+    enable_tool_memory=True,       # Tool usage patterns
+    enable_planning_memory=True,   # Goals and task tracking
 )
 
 # Core memory (read-only identity)
@@ -171,6 +175,93 @@ results = await controller.search_archival("preferences", limit=5)
 
 # Combined search
 results = await controller.search_all("important topic")
+```
+
+### GraphMemory
+
+```python
+from agentic_swarm.memory import GraphMemory
+
+graph = GraphMemory(agent_id="agent-1")
+
+# Add entities
+graph.add_entity("user_1", "person", "John", {"role": "developer"})
+graph.add_entity("proj_1", "project", "Alpha", {"status": "active"})
+
+# Add relationships
+graph.add_relationship("user_1", "proj_1", "works_on", {"since": "2024"})
+
+# Query
+related = graph.get_related("user_1", direction="outgoing")
+path = graph.find_path("user_1", "proj_1")
+entities = graph.get_entities_by_type("person")
+
+# Traverse (multi-hop)
+result = graph.traverse("user_1", max_depth=3)
+
+# Persistence
+data = graph.to_dict()
+restored = GraphMemory.from_dict(data)
+```
+
+### ToolMemory
+
+```python
+from agentic_swarm.memory import ToolMemory
+
+tool_mem = ToolMemory(agent_id="agent-1")
+
+# Record tool usage
+tool_mem.record_usage(
+    tool_name="web_search",
+    task_description="Search for Python docs",
+    success=True,
+    duration_ms=150.0,
+)
+
+# Get statistics
+stats = tool_mem.get_tool_stats("web_search")
+print(f"Success rate: {stats.success_rate:.1%}")
+
+# Get best tool for task
+best = tool_mem.get_best_tool_for("search the web")
+
+# Get recent failures
+failures = tool_mem.get_recent_failures(limit=5)
+```
+
+### PlanningMemory
+
+```python
+from agentic_swarm.memory import PlanningMemory, Priority
+
+planning = PlanningMemory(agent_id="agent-1")
+
+# Create a goal
+goal = planning.add_goal(
+    description="Build API",
+    priority=Priority.HIGH,
+    success_criteria=["Tests pass", "Deployed"],
+)
+
+# Create a plan
+plan = planning.create_plan(
+    goal_id=goal.id,
+    description="Implementation plan",
+    tasks=[
+        {"description": "Setup project"},
+        {"description": "Implement endpoints", "dependencies": ["task_1"]},
+        {"description": "Write tests", "dependencies": ["task_2"]},
+    ],
+)
+
+# Work through tasks
+task = planning.get_next_task(plan.id)
+planning.start_task(plan.id, task.id)
+planning.complete_task(plan.id, task.id, result="Done")
+
+# Check progress
+print(f"Progress: {plan.progress:.0%}")
 ```
 
 ---
