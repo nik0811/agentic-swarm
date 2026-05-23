@@ -7,7 +7,7 @@ from .tool import tool
 from .tools.base import Tool, ToolSchema
 from .tools.registry import ToolRegistry
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __all__ = [
     "Agent",
     "Swarm",

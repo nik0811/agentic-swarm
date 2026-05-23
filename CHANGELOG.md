@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/nik0811/agentic-swarm/compare/v0.2.0...v0.2.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* update author email in pyproject.toml ([#18](https://github.com/nik0811/agentic-swarm/issues/18)) ([47be229](https://github.com/nik0811/agentic-swarm/commit/47be229c8980667facf379c68872dc41c403e59f))
+
 ## [0.2.0](https://github.com/nik0811/agentic-swarm/compare/v0.1.1...v0.2.0) (2026-05-23)
 
 
